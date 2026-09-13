@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-const OPENROUTER_MODEL = "nex-agi/nex-n2.5-mini:free";
+// TEXT_MODEL is the stable default. It is text-only, but still handles PDF uploads because the
+// file-parser plugin extracts their text at OpenRouter before the model sees it. Images have no
+// such extraction step, so they are routed to a vision model instead — sending one to TEXT_MODEL
+// fails with "No endpoints found that support image input".
+const TEXT_MODEL = "cohere/north-mini-code:free";
+const VISION_MODEL = "inclusionai/ling-3.0-flash-vl:free";
 const MAX_TOKENS_CAP = 4000;
 
 // Simple in-memory rate limiter, per server process. It resets on restart and isn't shared
@@ -75,15 +80,16 @@ export async function POST(req) {
       : 800;
 
   const hasFileBlock = contentBlocks.some((b) => b?.type === "file");
+  const hasImageBlock = contentBlocks.some((b) => b?.type === "image_url");
 
   const requestPayload = {
-    model: OPENROUTER_MODEL,
+    model: hasImageBlock ? VISION_MODEL : TEXT_MODEL,
     max_tokens: safeMaxTokens,
     temperature: 0.2,
     messages: [{ role: "user", content: contentBlocks }],
-    // This model can burn its whole token budget on internal chain-of-thought (leaving the
+    // Some models burn their whole token budget on internal chain-of-thought (leaving the
     // actual answer empty/truncated, and occasionally drifting into other languages mid-thought).
-    // Disabling reasoning forces it straight to the final answer.
+    // Disabling reasoning forces them straight to the final answer.
     reasoning: { enabled: false },
   };
 
@@ -104,6 +110,7 @@ export async function POST(req) {
     const data = await response.json();
 
     if (!response.ok) {
+      console.error("OpenRouter returned an error:", response.status, JSON.stringify(data));
       return NextResponse.json(
         { error: data?.error?.message || "خطأ من OpenRouter API." },
         { status: response.status }

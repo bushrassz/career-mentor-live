@@ -267,11 +267,34 @@ const CAREER_FIELDS = [
 ];
 
 // ---------- helpers ----------
+// Finds the first {...} object using balanced-brace matching (tracking string literals so
+// braces inside quoted text don't confuse it), instead of naively pairing the first "{" with
+// the last "}" in the string. Some models append a stray extra "}" or trailing commentary
+// after a perfectly valid JSON object; balanced matching ignores that trailing noise instead
+// of failing to parse.
 function extractJson(raw) {
   const first = raw.indexOf("{");
-  const last = raw.lastIndexOf("}");
-  if (first === -1 || last === -1) throw new Error("no-json-found");
-  return JSON.parse(raw.slice(first, last + 1));
+  if (first === -1) throw new Error("no-json-found");
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = first; i < raw.length; i++) {
+    const ch = raw[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) return JSON.parse(raw.slice(first, i + 1));
+    }
+  }
+  throw new Error("no-json-found");
 }
 
 function fileToBase64(file) {
