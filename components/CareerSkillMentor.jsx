@@ -6,7 +6,6 @@ import {
   Compass,
   Loader2,
   Upload,
-  FileText,
   Pencil,
   Copy,
   CopyCheck,
@@ -229,16 +228,16 @@ function HeroTrail() {
 }
 
 const ARCHETYPES = [
-  { key: "explorer", match: ["ai", "ذكاء", "data", "بيانات", "machine", "تعلم"], name: "المستكشف" },
-  { key: "guardian", match: ["governance", "حوكم", "compliance", "مالي", "finance", "audit", "risk"], name: "الحارس" },
-  { key: "analyst", match: ["analyst", "محلل", "business", "أعمال"], name: "المحلل" },
-  { key: "builder", match: ["engineer", "مهندس", "developer", "مطور", "technical", "تقني"], name: "الباني" },
-  { key: "strategist", match: ["strategy", "استراتيج", "manager", "مدير", "product", "منتج"], name: "الاستراتيجي" },
+  { key: "explorer", match: ["ai", "ذكاء", "data", "بيانات", "machine", "تعلم"] },
+  { key: "guardian", match: ["governance", "حوكم", "compliance", "مالي", "finance", "audit", "risk"] },
+  { key: "analyst", match: ["analyst", "محلل", "business", "أعمال"] },
+  { key: "builder", match: ["engineer", "مهندس", "developer", "مطور", "technical", "تقني"] },
+  { key: "strategist", match: ["strategy", "استراتيج", "manager", "مدير", "product", "منتج"] },
 ];
-function getArchetype(role) {
+function getArchetypeKey(role) {
   const lower = (role || "").toLowerCase();
   const found = ARCHETYPES.find((a) => a.match.some((m) => lower.includes(m)));
-  return found || { key: "voyager", name: "المسافر" };
+  return found ? found.key : "voyager";
 }
 
 const CAREER_FIELDS = [
@@ -675,13 +674,17 @@ export default function CareerSkillMentor() {
     setEditingProfile(false);
   }
 
+  function profileSummary() {
+    return `الكلمات المفتاحية: ${profile.keywords.join("، ")}\nالنبذة: ${profile.bio}\nالمجال الحالي: ${profile.currentField}`;
+  }
+
   async function runOption(optionId) {
     setSelectedOption(optionId);
     setResultData(null);
     setBusy(true);
     setError("");
     try {
-      const base = `الكلمات المفتاحية: ${profile.keywords.join("، ")}\nالنبذة: ${profile.bio}\nالمجال الحالي: ${profile.currentField}`;
+      const base = profileSummary();
 
       if (optionId === 1) {
         const prompt = `${languageDirective(lang)}${base}\n\nاعتمد فقط على المعلومات أعلاه، لا تفترض مهارات غير مذكورة. اقترح مجالات وظيفية جديدة مناسبة للتنقل إليها بناءً على المهارات أعلاه، بالعدد اللي يستحقه فعلاً (لا تفرض رقماً ثابتاً). لكل مجال: اسمه، سبب مناسبته بجملة، وأول خطوة عملية للبدء بجملة.\n\nأجب بصيغة JSON فقط، ابدأ مباشرة بعلامة { وانتهِ بعلامة }، بهذا الشكل: {"items": [{"title": "...", "why": "...", "step": "..."}]}`;
@@ -730,7 +733,7 @@ export default function CareerSkillMentor() {
     setBusy(true);
     setError("");
     try {
-      const base = `الكلمات المفتاحية: ${profile.keywords.join("، ")}\nالنبذة: ${profile.bio}\nالمجال الحالي: ${profile.currentField}`;
+      const base = profileSummary();
       const prompt = `${languageDirective(lang)}${base}\n\nالشخص يفكر تحديداً بالانتقال إلى مجال: ${field}\n\nاعتمد فقط على المعلومات المزوّدة أعلاه - لا تفترض مهارات أو خبرات غير مذكورة. حدد: 1) نقاط القوة الفعلية الموجودة أعلاه واللي تخدم هذا الهدف تحديداً (بالعدد اللي يستحقه فعلاً)، 2) الفجوات المهارية الحقيقية بين المذكور أعلاه ومتطلبات هذا الدور، بالعدد اللي يعكس الفجوة الفعلية فقط. لكل فجوة: سبب أهميتها بجملة قصيرة، وخطوة عملية واحدة ملموسة (تفضّل موارد مجانية).\n\nأجب بصيغة JSON فقط، ابدأ مباشرة بعلامة { وانتهِ بعلامة }، بهذا الشكل: {"strengths": ["...", "..."], "gaps": [{"skill": "...", "why": "...", "step": "..."}]}`;
       const parsed = await callClaudeAndParse(
         [{ type: "text", text: prompt }],
@@ -782,6 +785,10 @@ export default function CareerSkillMentor() {
     : "https://adplist.org";
 
   const START = isRtl ? "right" : "left";
+
+  const matchingFields = fieldQuery.trim()
+    ? CAREER_FIELDS.filter((f) => f.toLowerCase().includes(fieldQuery.toLowerCase()))
+    : [];
 
   return (
     <div
@@ -942,7 +949,7 @@ export default function CareerSkillMentor() {
         {step === "profile" && profile && (
           <div className="cm-step-enter">
             <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
-              <Emblem type={getArchetype(profile.currentField).key} />
+              <Emblem type={getArchetypeKey(profile.currentField)} />
               <div>
                 <p style={{ margin: "0 0 4px 0", fontSize: 13, color: COLORS.inkSoft }}>{s.currentFieldLabel}</p>
                 <p style={{ margin: 0, fontFamily: "Amiri, serif", fontSize: 22, fontWeight: 700, color: COLORS.pineDark }}>
@@ -1094,7 +1101,7 @@ export default function CareerSkillMentor() {
                 />
                 {fieldQuery.trim() && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
-                    {CAREER_FIELDS.filter((f) => f.toLowerCase().includes(fieldQuery.toLowerCase())).slice(0, 6).map((f) => (
+                    {matchingFields.slice(0, 6).map((f) => (
                       <button
                         key={f}
                         onClick={() => runCustomFieldPlan(f)}
@@ -1115,7 +1122,7 @@ export default function CareerSkillMentor() {
                         {f}
                       </button>
                     ))}
-                    {CAREER_FIELDS.filter((f) => f.toLowerCase().includes(fieldQuery.toLowerCase())).length === 0 && (
+                    {matchingFields.length === 0 && (
                       <p style={{ fontSize: 13, color: COLORS.inkSoft, margin: 0 }}>{s.noMatch}</p>
                     )}
                   </div>
