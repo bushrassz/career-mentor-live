@@ -46,6 +46,7 @@ const STRINGS = {
     tabWrite: "أكتب بنفسي",
     uploadLabel: "PDF أو صورة أو ملف Word (docx)",
     uploadPlaceholder: "اضغط لاختيار ملف",
+    privacyNote: "هذه أداة تجريبية للتعلم — لا تُخزَّن بياناتك، لكنها تُعالج عبر خدمات AI خارجية.",
     writeLabel: "اكتب مهاراتك، خبرتك، ومجالك الحالي",
     writePlaceholder:
       "مثال: إدارة منتج، بناء منتجات من الصفر، تنسيق فرق، Figma، SQL أساسي. أعمل حالياً في مجال إدارة المنتجات بالقطاع الحكومي.",
@@ -106,6 +107,7 @@ const STRINGS = {
     tabWrite: "Write it myself",
     uploadLabel: "PDF, image, or Word file (docx)",
     uploadPlaceholder: "Click to choose a file",
+    privacyNote: "This is an experimental learning tool — your data isn't stored, but it is processed by external AI services.",
     writeLabel: "Write your skills, experience, and current field",
     writePlaceholder:
       "Example: Product management, building products from scratch, coordinating teams, Figma, basic SQL. I currently work in product management in the public sector.",
@@ -939,6 +941,10 @@ export default function CareerSkillMentor() {
               )}
               {error && <p style={{ color: COLORS.danger, fontSize: 14, marginTop: 12 }}>{error}</p>}
             </Panel>
+
+            <p style={{ fontSize: 12, color: COLORS.inkSoft, opacity: 0.7, lineHeight: 1.7, margin: "-14px 0 22px 0" }}>
+              {s.privacyNote}
+            </p>
 
             <PrimaryButton onClick={extractProfile} disabled={busy} loading={busy}>
               {busy ? s.analyzing : s.next}
