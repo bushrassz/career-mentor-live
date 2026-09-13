@@ -10,6 +10,11 @@ const TEXT_MODEL = "cohere/north-mini-code:free";
 const VISION_MODEL = "inclusionai/ling-3.0-flash-vl:free";
 const MAX_TOKENS_CAP = 4000;
 
+// Uploads are base64-encoded into the JSON body, which inflates them by roughly a third, so
+// this sits above the 5 MB per-file limit the UI enforces. The browser check is only a courtesy;
+// this is the one that counts, since anything can POST here directly.
+const MAX_REQUEST_BYTES = 8 * 1024 * 1024;
+
 // Simple in-memory rate limiter, per server process. It resets on restart and isn't shared
 // across multiple instances — good enough for a single-instance deployment to stop a script
 // from hammering this endpoint directly and burning the shared OpenRouter quota, but it is not
@@ -62,9 +67,27 @@ export async function POST(req) {
     );
   }
 
+  // Reject oversized uploads before reading the body when the client declares its size.
+  const declaredLength = Number(req.headers.get("content-length"));
+  if (declaredLength > MAX_REQUEST_BYTES) {
+    return NextResponse.json({ error: "حجم الطلب كبير جداً." }, { status: 413 });
+  }
+
+  let rawBody;
+  try {
+    rawBody = await req.text();
+  } catch {
+    return NextResponse.json({ error: "طلب غير صالح." }, { status: 400 });
+  }
+
+  // Backstop for requests that omit or understate content-length.
+  if (rawBody.length > MAX_REQUEST_BYTES) {
+    return NextResponse.json({ error: "حجم الطلب كبير جداً." }, { status: 413 });
+  }
+
   let body;
   try {
-    body = await req.json();
+    body = JSON.parse(rawBody);
   } catch {
     return NextResponse.json({ error: "طلب غير صالح." }, { status: 400 });
   }

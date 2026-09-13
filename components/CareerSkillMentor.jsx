@@ -49,6 +49,7 @@ const STRINGS = {
     writePlaceholder:
       "مثال: إدارة منتج، بناء منتجات من الصفر، تنسيق فرق، Figma، SQL أساسي. أعمل حالياً في مجال إدارة المنتجات بالقطاع الحكومي.",
     errUnsupportedFile: "صيغة الملف غير مدعومة. استخدم PDF أو صورة أو Word (docx).",
+    errFileTooLarge: "حجم الملف كبير. الحد الأقصى 5 ميجابايت.",
     errFileRead: "تعذر قراءة الملف، جرب ملف ثاني أو الصق النص مباشرة.",
     errNoInput: "ارفع ملف أو اكتب نص أول.",
     errAnalyze: "تعذر تحليل المحتوى، حاول مرة ثانية أو الصق النص يدوياً.",
@@ -110,6 +111,7 @@ const STRINGS = {
     writePlaceholder:
       "Example: Product management, building products from scratch, coordinating teams, Figma, basic SQL. I currently work in product management in the public sector.",
     errUnsupportedFile: "Unsupported file format. Use PDF, an image, or Word (docx).",
+    errFileTooLarge: "That file is too large. The maximum is 5 MB.",
     errFileRead: "Couldn't read the file. Try another file or paste the text directly.",
     errNoInput: "Upload a file or write some text first.",
     errAnalyze: "Couldn't analyze the content. Try again or paste the text manually.",
@@ -295,6 +297,10 @@ function extractJson(raw) {
   }
   throw new Error("no-json-found");
 }
+
+// Keep in step with MAX_REQUEST_BYTES in app/api/mentor/route.js, which enforces the real
+// limit — this check only spares the user a slow base64 encode before the server rejects it.
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -589,6 +595,12 @@ export default function CareerSkillMentor() {
     const file = e.target.files[0];
     if (!file) return;
     setError("");
+    if (file.size > MAX_FILE_BYTES) {
+      setError(s.errFileTooLarge);
+      setFileName("");
+      setFileBlock(null);
+      return;
+    }
     setFileName(file.name);
     setBusy(true);
     try {
