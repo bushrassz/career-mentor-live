@@ -31,8 +31,6 @@ const COLORS = {
   danger: "#A6432F",
 };
 
-const FONT_IMPORT = `@import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Cairo:wght@400;500;600;700&display=swap');`;
-
 // ---------- i18n ----------
 const STRINGS = {
   ar: {
@@ -372,7 +370,7 @@ async function callClaudeAndParse(contentBlocks, maxTokens, validate, attempts =
 // ---------- small UI atoms ----------
 function Label({ children }) {
   return (
-    <p style={{ fontFamily: "Cairo, sans-serif", fontSize: 14, color: COLORS.inkSoft, margin: "0 0 10px 0", lineHeight: 1.6 }}>
+    <p style={{ fontFamily: "var(--font-cairo), sans-serif", fontSize: 14, color: COLORS.inkSoft, margin: "0 0 10px 0", lineHeight: 1.6 }}>
       {children}
     </p>
   );
@@ -385,7 +383,7 @@ function PrimaryButton({ children, onClick, disabled, loading }) {
       disabled={disabled}
       className={disabled ? "" : "cm-btn"}
       style={{
-        fontFamily: "Cairo, sans-serif",
+        fontFamily: "var(--font-cairo), sans-serif",
         fontSize: 15,
         fontWeight: 600,
         padding: "11px 22px",
@@ -424,7 +422,7 @@ function Panel({ children, style }) {
 
 const INPUT_STYLE = {
   width: "100%",
-  fontFamily: "Cairo, sans-serif",
+  fontFamily: "var(--font-cairo), sans-serif",
   fontSize: 16,
   padding: "10px 12px",
   border: `1px solid ${COLORS.border}`,
@@ -453,7 +451,7 @@ function LanguageToggle({ lang, setLang }) {
           key={l}
           onClick={() => setLang(l)}
           style={{
-            fontFamily: "Cairo, sans-serif",
+            fontFamily: "var(--font-cairo), sans-serif",
             fontSize: 12,
             fontWeight: 600,
             padding: "5px 12px",
@@ -796,14 +794,13 @@ export default function CareerSkillMentor() {
     <div
       dir={s.dir}
       style={{
-        fontFamily: "Cairo, sans-serif",
+        fontFamily: "var(--font-cairo), sans-serif",
         background: `radial-gradient(rgba(47,107,87,0.09) 1px, transparent 1.4px) 0 0/20px 20px, ${COLORS.bg}`,
         minHeight: "100%",
         padding: "40px 20px",
         color: COLORS.ink,
       }}
     >
-      <style>{FONT_IMPORT}</style>
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .spin { animation: spin 1s linear infinite; }
@@ -855,7 +852,7 @@ export default function CareerSkillMentor() {
                   fontSize: 13,
                   color: COLORS.inkSoft,
                   cursor: "pointer",
-                  fontFamily: "Cairo, sans-serif",
+                  fontFamily: "var(--font-cairo), sans-serif",
                 }}
               >
                 <RotateCcw size={14} /> {s.startOver}
@@ -869,7 +866,7 @@ export default function CareerSkillMentor() {
         {step === "input" && (
           <div className="cm-step-enter">
             <HeroTrail />
-            <h1 style={{ fontFamily: "Amiri, serif", fontSize: 34, fontWeight: 700, margin: "4px 0 8px 0", lineHeight: 1.3, color: COLORS.pineDark }}>
+            <h1 style={{ fontFamily: "var(--font-amiri), serif", fontSize: 34, fontWeight: 700, margin: "4px 0 8px 0", lineHeight: 1.3, color: COLORS.pineDark }}>
               {s.inputHeading}
             </h1>
             <p style={{ color: COLORS.inkSoft, fontSize: 16, lineHeight: 1.8, margin: "0 0 28px 0", maxWidth: 480 }}>
@@ -886,7 +883,7 @@ export default function CareerSkillMentor() {
                   onClick={() => setInputMode(tab.id)}
                   className="cm-tab"
                   style={{
-                    fontFamily: "Cairo, sans-serif",
+                    fontFamily: "var(--font-cairo), sans-serif",
                     fontSize: 14,
                     fontWeight: 600,
                     padding: "9px 18px",
@@ -958,7 +955,7 @@ export default function CareerSkillMentor() {
               <Emblem type={getArchetypeKey(profile.currentField)} />
               <div>
                 <p style={{ margin: "0 0 4px 0", fontSize: 13, color: COLORS.inkSoft }}>{s.currentFieldLabel}</p>
-                <p style={{ margin: 0, fontFamily: "Amiri, serif", fontSize: 22, fontWeight: 700, color: COLORS.pineDark }}>
+                <p style={{ margin: 0, fontFamily: "var(--font-amiri), serif", fontSize: 22, fontWeight: 700, color: COLORS.pineDark }}>
                   {profile.currentField}
                 </p>
               </div>
@@ -982,7 +979,7 @@ export default function CareerSkillMentor() {
                       fontSize: 12,
                       color: COLORS.pine,
                       cursor: "pointer",
-                      fontFamily: "Cairo, sans-serif",
+                      fontFamily: "var(--font-cairo), sans-serif",
                     }}
                   >
                     <Pencil size={12} /> {s.edit}
@@ -1018,7 +1015,7 @@ export default function CareerSkillMentor() {
                     <button
                       onClick={() => setEditingProfile(false)}
                       style={{
-                        fontFamily: "Cairo, sans-serif",
+                        fontFamily: "var(--font-cairo), sans-serif",
                         fontSize: 14,
                         color: COLORS.inkSoft,
                         background: "none",
@@ -1083,7 +1080,7 @@ export default function CareerSkillMentor() {
                     border: `1px solid ${showFieldPicker && opt.custom ? COLORS.pine : COLORS.border}`,
                     borderRadius: 4,
                     cursor: busy ? "default" : "pointer",
-                    fontFamily: "Cairo, sans-serif",
+                    fontFamily: "var(--font-cairo), sans-serif",
                   }}
                 >
                   <div>
@@ -1117,7 +1114,7 @@ export default function CareerSkillMentor() {
                           textAlign: isRtl ? "right" : "left",
                           padding: "9px 12px",
                           fontSize: 14,
-                          fontFamily: "Cairo, sans-serif",
+                          fontFamily: "var(--font-cairo), sans-serif",
                           background: "#FCFAF5",
                           border: `1px solid ${COLORS.border}`,
                           borderRadius: 3,
@@ -1151,14 +1148,14 @@ export default function CareerSkillMentor() {
           <div className="cm-step-enter">
             <button
               onClick={() => setStep("profile")}
-              style={{ background: "none", border: "none", color: COLORS.pine, fontSize: 14, cursor: "pointer", padding: 0, marginBottom: 18, fontFamily: "Cairo, sans-serif" }}
+              style={{ background: "none", border: "none", color: COLORS.pine, fontSize: 14, cursor: "pointer", padding: 0, marginBottom: 18, fontFamily: "var(--font-cairo), sans-serif" }}
             >
               {s.backToOptions}
             </button>
 
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 18 }}>
               {resultTitle && (
-                <h2 style={{ fontFamily: "Amiri, serif", fontSize: 24, fontWeight: 700, color: COLORS.pineDark, margin: 0 }}>
+                <h2 style={{ fontFamily: "var(--font-amiri), serif", fontSize: 24, fontWeight: 700, color: COLORS.pineDark, margin: 0 }}>
                   {resultTitle}
                 </h2>
               )}
@@ -1178,7 +1175,7 @@ export default function CareerSkillMentor() {
                     fontSize: 13,
                     color: copied ? COLORS.pine : COLORS.inkSoft,
                     cursor: "pointer",
-                    fontFamily: "Cairo, sans-serif",
+                    fontFamily: "var(--font-cairo), sans-serif",
                   }}
                 >
                   {copied ? <CopyCheck size={14} /> : <Copy size={14} />}
