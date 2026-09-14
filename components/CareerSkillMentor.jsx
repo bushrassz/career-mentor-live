@@ -162,8 +162,8 @@ const STRINGS = {
 // Placed at the very start of every prompt so it has top priority over the rest of the instructions.
 function languageDirective(lang) {
   return lang === "en"
-    ? "STRICT LANGUAGE RULE (read this first, it overrides everything below): your entire response must be written ONLY in English — not a single word, letter, or phrase in any other language. The one exception is tool, technology, and programming language names, which must always stay in English exactly as written regardless of the response language (for example: Python, SQL, Figma). Do not mix in any other language under any circumstance.\n\n---\n\n"
-    : "تعليمة لغة صارمة (اقرأها أولاً، ولها أولوية على كل ما يليها): يجب أن يكون ردك بالكامل مكتوباً باللغة العربية الفصحى الواضحة فقط — بدون أي كلمة أو حرف أو عبارة من أي لغة أخرى إطلاقاً (ممنوع تماماً أي حرف صيني أو إنجليزي أو من أي لغة غير العربية). الاستثناء الوحيد هو أسماء الأدوات والتقنيات ولغات البرمجة، واللي تبقى دائماً بالإنجليزية كما هي بغض النظر عن لغة الرد (مثل Python، SQL، Figma). لا تخلطي أي لغة أخرى إطلاقاً تحت أي ظرف.\n\n---\n\n";
+    ? "STRICT LANGUAGE RULE (read this first, it overrides everything below): your entire response must be written ONLY in English — not a single word, letter, or phrase in any other language. This holds even when the attached CV, document, or image is written in a different language: do NOT mirror the source language, translate its content and answer in English. The one exception is tool, technology, and programming language names, which must always stay in English exactly as written regardless of the response language (for example: Python, SQL, Figma). Do not mix in any other language under any circumstance.\n\n---\n\n"
+    : "تعليمة لغة صارمة (اقرأها أولاً، ولها أولوية على كل ما يليها): يجب أن يكون ردك بالكامل مكتوباً باللغة العربية الفصحى الواضحة فقط — بدون أي كلمة أو حرف أو عبارة من أي لغة أخرى إطلاقاً (ممنوع تماماً أي حرف صيني أو إنجليزي أو من أي لغة غير العربية). وهذا ينطبق حتى لو كانت السيرة الذاتية أو المستند أو الصورة المرفقة مكتوبة بلغة أخرى: لا تقلّد لغة المصدر إطلاقاً، بل ترجم محتواها واكتب ردك بالعربية. الاستثناء الوحيد هو أسماء الأدوات والتقنيات ولغات البرمجة، واللي تبقى دائماً بالإنجليزية كما هي بغض النظر عن لغة الرد (مثل Python، SQL، Figma). لا تخلطي أي لغة أخرى إطلاقاً تحت أي ظرف.\n\n---\n\n";
 }
 
 // ---------- Emblem (abstract badge per field archetype) ----------
@@ -357,13 +357,17 @@ function matchesLanguage(parsed, lang) {
 // (1 initial try + up to 2 automatic retries) before giving up. Never throws synchronously —
 // every failure mode (network, non-JSON body, truncated/malformed JSON, failed validation)
 // is funneled through the same catch so the caller's try/catch always sees a normal rejection.
-async function callClaudeAndParse(contentBlocks, maxTokens, validate, attempts = 3) {
+async function callClaudeAndParse(contentBlocks, maxTokens, validate, lang, attempts = 3) {
   let lastErr = new Error("unknown-error");
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
       const raw = await callClaude(contentBlocks, maxTokens);
       const parsed = extractJson(raw);
-      if (!validate(parsed)) throw new Error("malformed");
+      if (!validate(parsed)) throw new Error("malformed-shape");
+      // Checked separately from the shape: the model sometimes returns a perfectly valid object
+      // that simply mirrors an uploaded document's language instead of the requested one, and
+      // reporting that as "malformed" sends anyone debugging it down the wrong path.
+      if (!matchesLanguage(parsed, lang)) throw new Error("wrong-language");
       return parsed;
     } catch (err) {
       lastErr = err;
@@ -656,7 +660,8 @@ export default function CareerSkillMentor() {
       const parsed = await callClaudeAndParse(
         content,
         400,
-        (p) => Array.isArray(p.keywords) && !!p.bio && matchesLanguage(p, lang)
+        (p) => Array.isArray(p.keywords) && !!p.bio,
+        lang
       );
       setProfile(parsed);
       setStep("profile");
@@ -703,7 +708,8 @@ export default function CareerSkillMentor() {
         const parsed = await callClaudeAndParse(
           [{ type: "text", text: prompt }],
           900,
-          (p) => Array.isArray(p.items) && matchesLanguage(p, lang)
+          (p) => Array.isArray(p.items),
+          lang
         );
         setResultTitle(s.newFieldsTitle);
         setResultType("items");
@@ -713,7 +719,8 @@ export default function CareerSkillMentor() {
         const parsed = await callClaudeAndParse(
           [{ type: "text", text: prompt }],
           900,
-          (p) => Array.isArray(p.items) && matchesLanguage(p, lang)
+          (p) => Array.isArray(p.items),
+          lang
         );
         setResultTitle(`${s.deepenTitlePrefix}${profile.currentField}`);
         setResultType("items");
@@ -723,7 +730,8 @@ export default function CareerSkillMentor() {
         const parsed = await callClaudeAndParse(
           [{ type: "text", text: prompt }],
           700,
-          (p) => !!p.bio && Array.isArray(p.tips) && matchesLanguage(p, lang)
+          (p) => !!p.bio && Array.isArray(p.tips),
+          lang
         );
         setResultTitle(s.resumeTitle);
         setResultType("resume");
@@ -750,7 +758,8 @@ export default function CareerSkillMentor() {
       const parsed = await callClaudeAndParse(
         [{ type: "text", text: prompt }],
         1200,
-        (p) => Array.isArray(p.strengths) && Array.isArray(p.gaps) && matchesLanguage(p, lang)
+        (p) => Array.isArray(p.strengths) && Array.isArray(p.gaps),
+        lang
       );
       setResultTitle(`${s.transitionTitlePrefix}${field}`);
       setResultType("plan");
