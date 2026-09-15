@@ -162,8 +162,8 @@ const STRINGS = {
 // Placed at the very start of every prompt so it has top priority over the rest of the instructions.
 function languageDirective(lang) {
   return lang === "en"
-    ? "STRICT LANGUAGE RULE (read this first, it overrides everything below): your entire response must be written ONLY in English — not a single word, letter, or phrase in any other language. This holds even when the attached CV, document, or image is written in a different language: do NOT mirror the source language, translate its content and answer in English. The one exception is tool, technology, and programming language names, which must always stay in English exactly as written regardless of the response language (for example: Python, SQL, Figma). Do not mix in any other language under any circumstance.\n\n---\n\n"
-    : "تعليمة لغة صارمة (اقرأها أولاً، ولها أولوية على كل ما يليها): يجب أن يكون ردك بالكامل مكتوباً باللغة العربية الفصحى الواضحة فقط — بدون أي كلمة أو حرف أو عبارة من أي لغة أخرى إطلاقاً (ممنوع تماماً أي حرف صيني أو إنجليزي أو من أي لغة غير العربية). وهذا ينطبق حتى لو كانت السيرة الذاتية أو المستند أو الصورة المرفقة مكتوبة بلغة أخرى: لا تقلّد لغة المصدر إطلاقاً، بل ترجم محتواها واكتب ردك بالعربية. الاستثناء الوحيد هو أسماء الأدوات والتقنيات ولغات البرمجة، واللي تبقى دائماً بالإنجليزية كما هي بغض النظر عن لغة الرد (مثل Python، SQL، Figma). لا تخلطي أي لغة أخرى إطلاقاً تحت أي ظرف.\n\n---\n\n";
+    ? "STRICT LANGUAGE RULE (read this first, it overrides everything below): the TEXT VALUES in your response must be written ONLY in English. This holds even when the attached CV, document, or image is written in a different language: do NOT mirror the source language, translate its content and answer in English. Tool, technology, and programming language names always stay in English exactly as written (for example: Python, SQL, Figma).\n\nThis rule applies to the text values ONLY — never to the JSON structure. Field names (such as \"strengths\", \"gaps\", \"items\", \"bio\") must be copied exactly as given, never translated, and every structural character — braces, brackets, double quotes, colons, and the commas separating fields and array elements — must be the plain ASCII ones. Never use a non-ASCII comma inside the JSON structure.\n\n---\n\n"
+    : "تعليمة لغة صارمة (اقرأها أولاً، ولها أولوية على كل ما يليها): يجب أن تكون النصوص في ردك مكتوبة باللغة العربية الفصحى الواضحة فقط. وهذا ينطبق حتى لو كانت السيرة الذاتية أو المستند أو الصورة المرفقة مكتوبة بلغة أخرى: لا تقلّد لغة المصدر إطلاقاً، بل ترجم محتواها واكتب ردك بالعربية. أسماء الأدوات والتقنيات ولغات البرمجة تبقى دائماً بالإنجليزية كما هي (مثل Python، SQL، Figma).\n\nهذه القاعدة تخص قيم النصوص فقط — ولا تنطبق إطلاقاً على بنية JSON. أسماء الحقول (مثل \"strengths\" و\"gaps\" و\"items\" و\"bio\") تُنسخ حرفياً كما هي بالإنجليزية وممنوع ترجمتها، وكل رموز البنية — الأقواس المعقوفة والمربعة وعلامات الاقتباس المزدوجة والنقطتان والفواصل التي تفصل بين الحقول وبين عناصر المصفوفات — يجب أن تكون لاتينية عادية. ممنوع منعاً باتاً استخدام الفاصلة العربية (،) داخل بنية JSON، استخدم الفاصلة اللاتينية (,) فقط.\n\n---\n\n";
 }
 
 // ---------- Emblem (abstract badge per field archetype) ----------
@@ -280,20 +280,30 @@ function extractJson(raw) {
   let depth = 0;
   let inString = false;
   let escaped = false;
+  let out = "";
   for (let i = first; i < raw.length; i++) {
     const ch = raw[i];
     if (inString) {
+      out += ch;
       if (escaped) escaped = false;
       else if (ch === "\\") escaped = true;
       else if (ch === '"') inString = false;
       continue;
     }
-    if (ch === '"') inString = true;
-    else if (ch === "{") depth++;
+    if (ch === '"') {
+      inString = true;
+      out += ch;
+      continue;
+    }
+    if (ch === "{") depth++;
     else if (ch === "}") {
       depth--;
-      if (depth === 0) return JSON.parse(raw.slice(first, i + 1));
+      if (depth === 0) return JSON.parse(out + ch);
     }
+    // Writing Arabic, the model sometimes separates fields and array elements with an Arabic
+    // comma, which isn't valid JSON. Correcting it is only safe out here: inside a string an
+    // Arabic comma is ordinary punctuation and has to survive untouched.
+    out += ch === "،" ? "," : ch;
   }
   throw new Error("no-json-found");
 }
