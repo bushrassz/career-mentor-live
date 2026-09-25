@@ -1,9 +1,10 @@
 node_modules
 .next
 out
-.env
-.env.local
-.env*.local
+# Every .env variant, so a future .env.production can't slip through; the
+# placeholder-only example file is deliberately kept.
+.env*
+!.env*.example
 npm-debug.log*
 .DS_Store
 .claude/scheduled_tasks.lock
