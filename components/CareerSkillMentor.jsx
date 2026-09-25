@@ -91,6 +91,11 @@ const STRINGS = {
     strengthsLabel: "نقاط قوتك تجاه هذا الهدف",
     gapsLabel: "الفجوات اللي تحتاج تسدّها",
     actionPlanLabel: "خطة العمل",
+    generatePlan: "ولّد لي خطة أسابيع",
+    generatingPlan: "يولّد الخطة...",
+    weeklyPlanTitle: "خطة الأسابيع",
+    weekLabel: "الأسبوع",
+    retry: "حاول مرة ثانية",
     copyBioLabel: "النبذة:\n",
     copyTipsLabel: "\nنصائح:\n",
     copyStrengthsLabel: "نقاط القوة:\n",
@@ -153,6 +158,11 @@ const STRINGS = {
     strengthsLabel: "Your strengths toward this goal",
     gapsLabel: "Gaps you need to close",
     actionPlanLabel: "Action plan",
+    generatePlan: "Generate a weekly plan",
+    generatingPlan: "Generating the plan...",
+    weeklyPlanTitle: "Weekly plan",
+    weekLabel: "Week",
+    retry: "Try again",
     copyBioLabel: "Bio:\n",
     copyTipsLabel: "\nTips:\n",
     copyStrengthsLabel: "Strengths:\n",
@@ -550,6 +560,12 @@ export default function CareerSkillMentor() {
   const [showFieldPicker, setShowFieldPicker] = useState(false);
   const [fieldQuery, setFieldQuery] = useState("");
 
+  // Kept separate from `busy` so the rest of the result screen — the back link especially —
+  // stays usable while a weekly plan is being generated.
+  const [planBusy, setPlanBusy] = useState(false);
+  const [weeklyPlan, setWeeklyPlan] = useState(null);
+  const [planError, setPlanError] = useState("");
+
   function resetAll() {
     setStep("input");
     setInputMode("file");
@@ -565,6 +581,8 @@ export default function CareerSkillMentor() {
     setResultData(null);
     setShowFieldPicker(false);
     setFieldQuery("");
+    setWeeklyPlan(null);
+    setPlanError("");
   }
 
   async function handleFile(e) {
@@ -669,6 +687,8 @@ export default function CareerSkillMentor() {
 
   async function runOption(optionId) {
     setSelectedOption(optionId);
+    setWeeklyPlan(null);
+    setPlanError("");
     setResultData(null);
     setBusy(true);
     setError("");
@@ -720,6 +740,8 @@ export default function CareerSkillMentor() {
 
   async function runCustomFieldPlan(field) {
     setSelectedOption(5);
+    setWeeklyPlan(null);
+    setPlanError("");
     setResultData(null);
     setShowFieldPicker(false);
     setBusy(true);
@@ -742,6 +764,34 @@ export default function CareerSkillMentor() {
       setError(s.genericError);
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function generateWeeklyPlan() {
+    setPlanBusy(true);
+    setPlanError("");
+    try {
+      const response = await fetch("/api/mentor/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentField: profile.currentField,
+          bio: profile.bio,
+          keywords: profile.keywords,
+          strengths: resultData.strengths,
+          gaps: resultData.gaps,
+        }),
+      });
+      const data = await response.json();
+      // The endpoint already retries the model internally, so a failure here is final.
+      if (!response.ok) throw new Error(data?.error || "request-failed");
+      if (!Array.isArray(data.weeks) || data.weeks.length === 0) throw new Error("no-weeks");
+      setWeeklyPlan(data.weeks);
+    } catch (err) {
+      console.error(err);
+      setPlanError(s.genericError);
+    } finally {
+      setPlanBusy(false);
     }
   }
 
@@ -1296,6 +1346,75 @@ export default function CareerSkillMentor() {
                     ))}
                   </div>
                 </Panel>
+
+                <div style={{ marginTop: 20 }}>
+                  <PrimaryButton onClick={generateWeeklyPlan} disabled={planBusy} loading={planBusy}>
+                    {planBusy ? s.generatingPlan : s.generatePlan}
+                  </PrimaryButton>
+                </div>
+
+                {planError && (
+                  <div style={{ marginTop: 14 }}>
+                    <p style={{ color: COLORS.danger, fontSize: 14, margin: "0 0 10px 0" }}>{planError}</p>
+                    <PrimaryButton onClick={generateWeeklyPlan} disabled={planBusy} loading={planBusy}>
+                      {s.retry}
+                    </PrimaryButton>
+                  </div>
+                )}
+
+                {weeklyPlan && (
+                  <Panel style={{ marginTop: 20 }}>
+                    <Label>{s.weeklyPlanTitle}</Label>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                      {weeklyPlan.map((week) => (
+                        <div key={week.weekNumber} style={{ display: "flex", gap: 14 }}>
+                          <div
+                            style={{
+                              width: 28,
+                              height: 28,
+                              borderRadius: "50%",
+                              background: COLORS.panel,
+                              border: `2px solid ${COLORS.amber}`,
+                              color: COLORS.amber,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: 13,
+                              fontWeight: 700,
+                              flexShrink: 0,
+                            }}
+                          >
+                            {week.weekNumber}
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <p style={{ margin: "4px 0 8px 0", fontSize: 13, color: COLORS.inkSoft }}>
+                              {s.weekLabel} {week.weekNumber}
+                            </p>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                              {week.tasks.map((task, i) => (
+                                <div key={i}>
+                                  <p style={{ margin: "0 0 4px 0", fontSize: 15, lineHeight: 1.7 }}>{task.title}</p>
+                                  <span
+                                    style={{
+                                      fontSize: 12,
+                                      padding: "3px 10px",
+                                      borderRadius: 20,
+                                      background: "#EEF0E5",
+                                      color: COLORS.pineDark,
+                                      border: `1px solid ${COLORS.border}`,
+                                    }}
+                                  >
+                                    {task.relatedSkill}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </Panel>
+                )}
               </>
             )}
             </ResultBoundary>
