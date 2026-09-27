@@ -9,6 +9,8 @@ const PLAN_MAX_TOKENS = 3000;
 const ATTEMPTS = 3;
 const RETRY_DELAY_MS = 600;
 
+const KNOWN_FAILURES = new Set(["no-json-found", "weeks-missing", "repeated-title", "unknown-relatedSkill"]);
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // The model reads these far better as prose than as raw JSON, so arrays are rendered into
@@ -175,17 +177,14 @@ export async function POST(req) {
         if (!Array.isArray(parsed.weeks) || parsed.weeks.length === 0) {
           throw new Error("weeks-missing");
         }
-        const overused = findOverusedTitle(parsed.weeks);
-        if (overused) {
-          throw new Error(`repeated-title ×${overused.count}: ${overused.title}`);
-        }
-        const unknownSkill = findUnknownSkill(parsed.weeks, body.gaps);
-        if (unknownSkill) {
-          throw new Error(`unknown-relatedSkill: ${unknownSkill}`);
-        }
+        if (findOverusedTitle(parsed.weeks)) throw new Error("repeated-title");
+        if (findUnknownSkill(parsed.weeks, body.gaps)) throw new Error("unknown-relatedSkill");
         return NextResponse.json({ weeks: withPendingStatus(parsed.weeks) });
       } catch (err) {
-        console.error(`Plan attempt ${attempt + 1} failed validation:`, err.message);
+        // Only the kind of failure is logged. Task titles and skill names are derived from the
+        // user's CV, and a JSON.parse SyntaxError quotes a snippet of the model's output.
+        const kind = KNOWN_FAILURES.has(err.message) ? err.message : "invalid-json";
+        console.error(`Plan attempt ${attempt + 1} failed validation:`, kind);
         lastError = "تعذر توليد خطة صالحة، حاول مرة ثانية.";
       }
     }
