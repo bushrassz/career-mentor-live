@@ -395,6 +395,36 @@ function PrimaryButton({ children, onClick, disabled, loading }) {
   );
 }
 
+// Lower-weight sibling of PrimaryButton for corrective actions — retrying after an error is a
+// constructive step, not a destructive one, so it keeps the primary hue and drops the fill
+// rather than turning red, which would read as "delete".
+function SecondaryButton({ children, onClick, disabled, loading }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={disabled ? "" : "cm-secondary"}
+      style={{
+        fontFamily: "var(--font-cairo), sans-serif",
+        fontSize: 15,
+        fontWeight: 600,
+        padding: "11px 22px",
+        background: "transparent",
+        color: disabled ? COLORS.inkSoft : COLORS.pineDark,
+        border: `1px solid ${disabled ? COLORS.border : COLORS.pine}`,
+        borderRadius: 3,
+        cursor: disabled ? "default" : "pointer",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 8,
+      }}
+    >
+      {loading && <Loader2 size={16} className="spin" />}
+      {children}
+    </button>
+  );
+}
+
 function Panel({ children, style }) {
   return (
     <div
@@ -562,6 +592,9 @@ export default function CareerSkillMentor() {
 
   // Kept separate from `busy` so the rest of the result screen — the back link especially —
   // stays usable while a weekly plan is being generated.
+  // The option (and, for the custom path, the exact field) the retry button should re-run.
+  const [lastPlanField, setLastPlanField] = useState("");
+
   const [planBusy, setPlanBusy] = useState(false);
   const [weeklyPlan, setWeeklyPlan] = useState(null);
   const [planError, setPlanError] = useState("");
@@ -740,6 +773,7 @@ export default function CareerSkillMentor() {
 
   async function runCustomFieldPlan(field) {
     setSelectedOption(5);
+    setLastPlanField(field);
     setWeeklyPlan(null);
     setPlanError("");
     setResultData(null);
@@ -765,6 +799,11 @@ export default function CareerSkillMentor() {
     } finally {
       setBusy(false);
     }
+  }
+
+  function retryLastOption() {
+    if (selectedOption === 5) runCustomFieldPlan(lastPlanField);
+    else if (selectedOption) runOption(selectedOption);
   }
 
   async function generateWeeklyPlan() {
@@ -871,6 +910,9 @@ export default function CareerSkillMentor() {
         .cm-upload:hover { border-color: ${COLORS.pine} !important; background: #F1EDE0 !important; }
 
         .cm-ghost:hover { background: #F1EDE0 !important; }
+
+        .cm-secondary { transition: background 0.15s ease; }
+        .cm-secondary:hover:not(:disabled) { background: #EAF1EE; }
       `}</style>
       <div style={{ maxWidth: 640, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, gap: 10, flexWrap: "wrap" }}>
@@ -1183,7 +1225,14 @@ export default function CareerSkillMentor() {
                 <Loader2 size={16} className="spin" /> {s.preparingRecs}
               </p>
             )}
-            {error && <p style={{ color: COLORS.danger, fontSize: 14, marginTop: 12 }}>{error}</p>}
+            {error && (
+              <div style={{ marginTop: 12 }}>
+                <p style={{ color: COLORS.danger, fontSize: 14, margin: "0 0 10px 0" }}>{error}</p>
+                <SecondaryButton onClick={retryLastOption} disabled={busy} loading={busy}>
+                  {s.retry}
+                </SecondaryButton>
+              </div>
+            )}
           </div>
         )}
 
@@ -1356,9 +1405,9 @@ export default function CareerSkillMentor() {
                 {planError && (
                   <div style={{ marginTop: 14 }}>
                     <p style={{ color: COLORS.danger, fontSize: 14, margin: "0 0 10px 0" }}>{planError}</p>
-                    <PrimaryButton onClick={generateWeeklyPlan} disabled={planBusy} loading={planBusy}>
+                    <SecondaryButton onClick={generateWeeklyPlan} disabled={planBusy} loading={planBusy}>
                       {s.retry}
-                    </PrimaryButton>
+                    </SecondaryButton>
                   </div>
                 )}
 
@@ -1418,8 +1467,6 @@ export default function CareerSkillMentor() {
               </>
             )}
             </ResultBoundary>
-
-            {error && <p style={{ color: COLORS.danger, fontSize: 14, marginTop: 12 }}>{error}</p>}
           </div>
         )}
       </div>
