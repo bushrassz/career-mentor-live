@@ -9,7 +9,7 @@ const PLAN_MAX_TOKENS = 3000;
 const ATTEMPTS = 3;
 const RETRY_DELAY_MS = 600;
 
-const KNOWN_FAILURES = new Set(["no-json-found", "weeks-missing", "repeated-title", "unknown-relatedSkill"]);
+const KNOWN_FAILURES = new Set(["no-json-found", "weeks-missing", "repeated-title", "invalid-gapNumber"]);
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -61,8 +61,8 @@ ${formatGaps(gaps)}
 الجمهور أو قيادة فريق) فتحتاج مهام أصغر موزّعة على عدد أكبر من الأسابيع حتى تتراكم
 الممارسة. والمهارة النظرية تحتاج مهام دراسة يتبعها تطبيق واحد على الأقل.
 
-قيمة relatedSkill يجب أن تكون نسخة حرفية من اسم إحدى المهارات المذكورة في قائمة
-الفجوات أعلاه، ولا تخترع مهارات أخرى ولا تستخدم نقاط القوة كمهارة مرتبطة.
+قيمة gapNumber هي رقم الفجوة التي تخدمها المهمة كما هو مرقّم في قائمة الفجوات أعلاه
+(من 1 إلى ${gaps.length})، ولا تربط أي مهمة بنقاط القوة أو بالمهارات الحالية.
 
 أرجع الإجابة بصيغة JSON فقط، بدون أي نص أو شرح قبلها أو بعدها، بالشكل التالي بالضبط:
 {
@@ -70,7 +70,7 @@ ${formatGaps(gaps)}
     {
       "weekNumber": 1,
       "tasks": [
-        { "title": "...", "relatedSkill": "..." }
+        { "title": "...", "gapNumber": 1 }
       ]
     }
   ]
@@ -119,27 +119,38 @@ function findOverusedTitle(weeks) {
   return null;
 }
 
-// The plan is only useful if every task maps back to a gap the caller actually sent. Left
-// unchecked the model drifts, attaching tasks to a strength or to a skill it invented, which
-// would silently widen the plan beyond what was asked for.
-function findUnknownSkill(weeks, gaps) {
-  const allowed = new Set(gaps.map((g) => g.skill.trim()));
-  for (const week of weeks) {
-    if (!Array.isArray(week.tasks)) continue;
-    for (const task of week.tasks) {
-      const skill = typeof task?.relatedSkill === "string" ? task.relatedSkill.trim() : "";
-      if (!allowed.has(skill)) return skill || "(فارغ)";
-    }
-  }
-  return null;
+// The model links each task to a gap by its number rather than by copying the gap's name. Gap
+// names from option 5 are long ("… (مثل Airflow، dbt، Lambda)"), and asked to copy them the
+// model routinely trimmed the brackets or named a strength instead, failing two attempts in
+// three. A number is either in range or not; a strength or keyword has no number to give.
+// gapNumber comes from model output, which the user's CV can influence, so it is treated as
+// untrusted: a plain integer, or a string of ASCII digits only — Number() alone would also
+// accept "0x2", "1e0" or "" (as 0).
+function toGapIndex(gapNumber, gapCount) {
+  const n =
+    typeof gapNumber === "string" && /^\s*\d+\s*$/.test(gapNumber) ? Number(gapNumber) : gapNumber;
+  return Number.isInteger(n) && n >= 1 && n <= gapCount ? n - 1 : -1;
 }
 
-// The model is never told about "status" — every task starts pending and the UI owns it from there.
-function withPendingStatus(weeks) {
+function hasInvalidGapNumber(weeks, gapCount) {
+  return weeks.some(
+    (week) =>
+      Array.isArray(week.tasks) && week.tasks.some((task) => toGapIndex(task?.gapNumber, gapCount) === -1)
+  );
+}
+
+// Rebuilds each task from known fields only: relatedSkill is filled in with the gap's exact
+// name, so the response shape the UI reads is unchanged. The model is never told about
+// "status" — every task starts pending and the UI owns it from there.
+function toResponseWeeks(weeks, gaps) {
   return weeks.map((week) => ({
-    ...week,
+    weekNumber: week.weekNumber,
     tasks: Array.isArray(week.tasks)
-      ? week.tasks.map((task) => ({ ...task, status: "pending" }))
+      ? week.tasks.map((task) => ({
+          title: task.title,
+          relatedSkill: gaps[toGapIndex(task.gapNumber, gaps.length)].skill,
+          status: "pending",
+        }))
       : [],
   }));
 }
@@ -178,8 +189,8 @@ export async function POST(req) {
           throw new Error("weeks-missing");
         }
         if (findOverusedTitle(parsed.weeks)) throw new Error("repeated-title");
-        if (findUnknownSkill(parsed.weeks, body.gaps)) throw new Error("unknown-relatedSkill");
-        return NextResponse.json({ weeks: withPendingStatus(parsed.weeks) });
+        if (hasInvalidGapNumber(parsed.weeks, body.gaps.length)) throw new Error("invalid-gapNumber");
+        return NextResponse.json({ weeks: toResponseWeeks(parsed.weeks, body.gaps) });
       } catch (err) {
         // Only the kind of failure is logged. Task titles and skill names are derived from the
         // user's CV, and a JSON.parse SyntaxError quotes a snippet of the model's output.
