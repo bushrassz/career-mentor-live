@@ -98,7 +98,7 @@ const STRINGS = {
     preparingPlan: "يجهّز الخطة...",
     preparingRecs: "يحضّر التوصيات...",
     genericError: "صار خلل، حاول مرة ثانية.",
-    backToOptions: "← رجوع للخيارات",
+    backToOptions: "رجوع للخيارات",
     copied: "تم النسخ",
     copy: "نسخ",
     newFieldsTitle: "مجالات جديدة مناسبة لك",
@@ -181,7 +181,7 @@ const STRINGS = {
     preparingPlan: "Preparing the plan...",
     preparingRecs: "Preparing recommendations...",
     genericError: "Something went wrong, try again.",
-    backToOptions: "← Back to options",
+    backToOptions: "Back to options",
     copied: "Copied",
     copy: "Copy",
     newFieldsTitle: "New fields that fit you",
@@ -1228,6 +1228,7 @@ export default function CareerSkillMentor() {
           .cm-journey { padding: 16px 14px 18px !important; }
           .cm-journey .cm-tab { padding: 9px 12px !important; }
           .cm-journey .cm-panel { padding: 16px !important; }
+          .cm-back { width: 100%; }
           .cm-preview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 8px; }
           .cm-preview-grid > .cm-preview-featured { grid-column: 1 / -1; }
         }
@@ -1643,16 +1644,37 @@ export default function CareerSkillMentor() {
 
         {step === "result" && (
           <div className="cm-step-enter">
+            {/* Above the frame, where it is the first thing on the screen. The arrow is drawn rather
+                typed: "back" points right in Arabic and left in English, and a typed "←" read as
+                "forward" in the Arabic interface. */}
+            <button
+              onClick={() => setStep("profile")}
+              className="cm-secondary cm-back"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                minHeight: 44,
+                padding: "0 18px",
+                marginBottom: 14,
+                background: COLORS.panel,
+                border: `1.5px solid ${COLORS.pine}`,
+                borderRadius: 4,
+                color: COLORS.pineDark,
+                fontSize: 14,
+                fontWeight: 700,
+                cursor: "pointer",
+                fontFamily: "var(--font-cairo), sans-serif",
+              }}
+            >
+              <ArrowRightIcon size={18} aria-hidden="true" style={{ transform: isRtl ? "none" : "scaleX(-1)" }} />
+              {s.backToOptions}
+            </button>
             <JourneyFrame>
             <JourneyStep number={1} state="done" title={s.journeyUpload} />
             <JourneyStep number={2} state="done" title={s.journeyAnalyze} note={profile?.currentField} />
             <JourneyStep number={3} state="current" last title={s.journeyChoose}>
-            <button
-              onClick={() => setStep("profile")}
-              style={{ background: "none", border: "none", color: COLORS.pine, fontSize: 14, cursor: "pointer", padding: 0, marginBottom: 18, fontFamily: "var(--font-cairo), sans-serif" }}
-            >
-              {s.backToOptions}
-            </button>
 
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 18 }}>
               {resultTitle && (
