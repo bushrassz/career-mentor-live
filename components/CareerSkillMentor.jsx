@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { extractJson } from "@/lib/extract-json";
 import {
@@ -100,6 +100,7 @@ const STRINGS = {
     weekLabel: "الأسبوع",
     skillLabel: "المهارة: ",
     savePdf: "حفظ PDF",
+    printBlocked: "المتصفح يمنع الطباعة المتكررة مؤقتاً بعد محاولة سابقة. انتظر بضع ثوانٍ ثم اضغط «حفظ PDF» مرة ثانية.",
     retry: "حاول مرة ثانية",
     copyBioLabel: "النبذة:\n",
     copyTipsLabel: "\nنصائح:\n",
@@ -170,6 +171,7 @@ const STRINGS = {
     weekLabel: "Week",
     skillLabel: "Skill: ",
     savePdf: "Save PDF",
+    printBlocked: "Your browser is briefly blocking repeated print requests after an earlier attempt. Wait a few seconds, then press “Save PDF” again.",
     retry: "Try again",
     copyBioLabel: "Bio:\n",
     copyTipsLabel: "\nTips:\n",
@@ -691,6 +693,9 @@ export default function CareerSkillMentor() {
   const [weeklyPlan, setWeeklyPlan] = useState(null);
   const [planError, setPlanError] = useState("");
   const [planCopied, setPlanCopied] = useState(false);
+  const [printBlocked, setPrintBlocked] = useState(false);
+  const lastPrintAttemptAt = useRef(0);
+  const printCheckTimer = useRef(null);
 
   function resetAll() {
     setStep("input");
@@ -907,6 +912,7 @@ export default function CareerSkillMentor() {
   async function generateWeeklyPlan() {
     setPlanBusy(true);
     setPlanError("");
+    setPrintBlocked(false);
     try {
       const response = await fetch("/api/mentor/plan", {
         method: "POST",
@@ -999,10 +1005,41 @@ export default function CareerSkillMentor() {
     };
   }, [showPrintout, planDocTitle]);
 
-  function handleSavePdf() {
-    // Cairo's Arabic and Latin subsets load on demand; waiting keeps the print from falling back.
-    document.fonts.ready.then(() => window.print());
+  // Browsers fire `beforeprint` whenever the print dialog actually opens. Chrome silently ignores
+  // window.print() for a while after a print dialog was cancelled (2s, doubling up to 32s), so a
+  // call with no `beforeprint` after an earlier attempt means the request was held back — the
+  // only signal a page gets, since the browser reports no error.
+  const PRINT_OPEN_GRACE_MS = 1500;
+  // Chrome's longest hold is 32s; a minute also covers the time the earlier dialog stayed open.
+  const RECENT_PRINT_MS = 60 * 1000;
+
+  function printPlan() {
+    const now = Date.now();
+    const hadRecentAttempt = now - lastPrintAttemptAt.current < RECENT_PRINT_MS;
+    lastPrintAttemptAt.current = now;
+    let opened = false;
+    const onBeforePrint = () => {
+      opened = true;
+    };
+    window.addEventListener("beforeprint", onBeforePrint, { once: true });
+    window.print();
+    clearTimeout(printCheckTimer.current);
+    printCheckTimer.current = setTimeout(() => {
+      window.removeEventListener("beforeprint", onBeforePrint);
+      if (!opened && hadRecentAttempt) setPrintBlocked(true);
+    }, PRINT_OPEN_GRACE_MS);
   }
+
+  function handleSavePdf() {
+    setPrintBlocked(false);
+    // Called inside the click itself whenever possible: Safari ignores window.print() that runs
+    // after the click has finished. Only when Cairo's Arabic or Latin subset is still loading is it
+    // worth waiting, since printing then would fall back to another font.
+    if (document.fonts.status === "loaded") printPlan();
+    else document.fonts.ready.then(printPlan);
+  }
+
+  useEffect(() => () => clearTimeout(printCheckTimer.current), []);
 
   const adpListUrl = profile
     ? `https://adplist.org/mentors?search=${encodeURIComponent(profile.currentField || "product management")}`
@@ -1602,6 +1639,23 @@ export default function CareerSkillMentor() {
                         </GhostButton>
                       </div>
                     </div>
+                    {printBlocked && (
+                      <p
+                        role="status"
+                        style={{
+                          margin: "0 0 14px 0",
+                          padding: "8px 12px",
+                          fontSize: 13,
+                          lineHeight: 1.6,
+                          color: COLORS.ink,
+                          background: "#FBF3E6",
+                          border: `1px solid ${COLORS.amber}`,
+                          borderRadius: 3,
+                        }}
+                      >
+                        {s.printBlocked}
+                      </p>
+                    )}
                     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                       {weeklyPlan.map((week) => (
                         <div key={week.weekNumber} style={{ display: "flex", gap: 14 }}>
