@@ -1,8 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { extractJson } from "@/lib/extract-json";
 import {
+  FileDown,
   Check,
   Compass,
   Loader2,
@@ -95,6 +97,8 @@ const STRINGS = {
     generatingPlan: "يولّد الخطة...",
     weeklyPlanTitle: "خطة الأسابيع",
     weekLabel: "الأسبوع",
+    skillLabel: "المهارة: ",
+    savePdf: "حفظ PDF",
     retry: "حاول مرة ثانية",
     copyBioLabel: "النبذة:\n",
     copyTipsLabel: "\nنصائح:\n",
@@ -162,6 +166,8 @@ const STRINGS = {
     generatingPlan: "Generating the plan...",
     weeklyPlanTitle: "Weekly plan",
     weekLabel: "Week",
+    skillLabel: "Skill: ",
+    savePdf: "Save PDF",
     retry: "Try again",
     copyBioLabel: "Bio:\n",
     copyTipsLabel: "\nTips:\n",
@@ -425,6 +431,66 @@ function SecondaryButton({ children, onClick, disabled, loading }) {
   );
 }
 
+// Small outlined action that sits beside a heading (copy, save). `active` tints it while it
+// confirms an action it just took, such as "Copied".
+function GhostButton({ children, onClick, icon, active }) {
+  return (
+    <button
+      onClick={onClick}
+      className="cm-ghost"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        flexShrink: 0,
+        background: "none",
+        border: `1px solid ${COLORS.border}`,
+        borderRadius: 3,
+        padding: "7px 12px",
+        fontSize: 13,
+        color: active ? COLORS.pine : COLORS.inkSoft,
+        cursor: "pointer",
+        fontFamily: "var(--font-cairo), sans-serif",
+      }}
+    >
+      {icon}
+      {children}
+    </button>
+  );
+}
+
+// Print-only copy of the weekly plan, portalled straight into <body> so the print stylesheet can
+// hide every other top-level node. It renders in the browser's own layout engine, which is what
+// joins Arabic letters and orders mixed Arabic/English text correctly — the PDF libraries tested
+// for this (jsPDF, react-pdf) got one or the other wrong. `dir` and the labels come from the
+// interface language at the moment "Save PDF" was pressed, not from the plan's own text.
+function PlanPrintout({ dir, t, title, weeks }) {
+  return (
+    <div className="cm-print-root" dir={dir}>
+      <h1>{title}</h1>
+      {weeks.map((week) => (
+        <section key={week.weekNumber} className="cm-print-week">
+          <h2>
+            <span className="cm-print-num">{week.weekNumber}</span>
+            {t.weekLabel} {week.weekNumber}
+          </h2>
+          <ul>
+            {week.tasks.map((task, i) => (
+              <li key={i}>
+                <div>{task.title}</div>
+                <div className="cm-print-skill">
+                  {t.skillLabel}
+                  {task.relatedSkill}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
+}
+
 function Panel({ children, style }) {
   return (
     <div
@@ -598,6 +664,10 @@ export default function CareerSkillMentor() {
   const [planBusy, setPlanBusy] = useState(false);
   const [weeklyPlan, setWeeklyPlan] = useState(null);
   const [planError, setPlanError] = useState("");
+  const [planCopied, setPlanCopied] = useState(false);
+  // Set when "Save PDF" is pressed: { lang, title }. Snapshotting the language here is what makes
+  // the printout follow the interface as it was at that moment.
+  const [printJob, setPrintJob] = useState(null);
 
   function resetAll() {
     setStep("input");
@@ -862,6 +932,55 @@ export default function CareerSkillMentor() {
     }
   }
 
+  const planDocTitle = `${s.weeklyPlanTitle} — ${lastPlanField}`;
+
+  function buildPlanCopyText() {
+    let out = `${planDocTitle}\n\n`;
+    weeklyPlan.forEach((week) => {
+      out += `${s.weekLabel} ${week.weekNumber}\n`;
+      week.tasks.forEach((task) => (out += `- ${task.title}\n  ${s.skillLabel}${task.relatedSkill}\n`));
+      out += "\n";
+    });
+    return out.trimEnd() + "\n";
+  }
+
+  async function handlePlanCopy() {
+    try {
+      await navigator.clipboard.writeText(buildPlanCopyText());
+      setPlanCopied(true);
+      setTimeout(() => setPlanCopied(false), 2000);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  function handleSavePdf() {
+    setPrintJob({ lang, title: planDocTitle });
+  }
+
+  // Runs once the printout has been committed to the DOM. The browser offers document.title as
+  // the PDF's file name, so it is swapped for the plan's title while the print dialog is open.
+  useEffect(() => {
+    if (!printJob) return;
+    const previousTitle = document.title;
+    document.title = printJob.title;
+    let cancelled = false;
+    const finish = () => {
+      document.title = previousTitle;
+      setPrintJob(null);
+    };
+    window.addEventListener("afterprint", finish, { once: true });
+    // Cairo's Arabic and Latin subsets load on demand; waiting keeps the print from falling back.
+    document.fonts.ready.then(() => {
+      if (!cancelled) window.print();
+    });
+    return () => {
+      cancelled = true;
+      window.removeEventListener("afterprint", finish);
+      document.title = previousTitle;
+    };
+  }, [printJob]);
+
   const adpListUrl = profile
     ? `https://adplist.org/mentors?search=${encodeURIComponent(profile.currentField || "product management")}`
     : "https://adplist.org";
@@ -913,6 +1032,52 @@ export default function CareerSkillMentor() {
 
         .cm-secondary { transition: background 0.15s ease; }
         .cm-secondary:hover:not(:disabled) { background: #EAF1EE; }
+
+        .cm-print-root { display: none; }
+        @media print {
+          @page { size: A4; margin: 16mm 14mm; }
+          html, body { background: #fff !important; }
+          body > *:not(.cm-print-root) { display: none !important; }
+          .cm-print-root {
+            display: block;
+            font-family: var(--font-cairo), sans-serif;
+            color: ${COLORS.ink};
+            font-size: 11.5pt;
+            line-height: 1.7;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          .cm-print-root h1 {
+            font-size: 17pt;
+            color: ${COLORS.pineDark};
+            margin: 0 0 5mm;
+            padding-bottom: 2mm;
+            border-bottom: 2px solid ${COLORS.pine};
+          }
+          .cm-print-week { break-inside: avoid; margin: 0 0 5mm; }
+          .cm-print-root h2 {
+            display: flex;
+            align-items: center;
+            gap: 2.5mm;
+            font-size: 12.5pt;
+            color: ${COLORS.pine};
+            margin: 0 0 1.5mm;
+          }
+          .cm-print-num {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 6.5mm;
+            height: 6.5mm;
+            border-radius: 50%;
+            background: ${COLORS.pine};
+            color: #fff;
+            font-size: 9.5pt;
+          }
+          .cm-print-root ul { margin: 0; padding-inline-start: 5mm; }
+          .cm-print-root li { margin: 0 0 1.5mm; }
+          .cm-print-skill { font-size: 9.5pt; color: ${COLORS.inkSoft}; }
+        }
       `}</style>
       <div style={{ maxWidth: 640, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, gap: 10, flexWrap: "wrap" }}>
@@ -1252,27 +1417,13 @@ export default function CareerSkillMentor() {
                 </h2>
               )}
               {resultData && (
-                <button
+                <GhostButton
                   onClick={handleCopy}
-                  className="cm-ghost"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    flexShrink: 0,
-                    background: "none",
-                    border: `1px solid ${COLORS.border}`,
-                    borderRadius: 3,
-                    padding: "7px 12px",
-                    fontSize: 13,
-                    color: copied ? COLORS.pine : COLORS.inkSoft,
-                    cursor: "pointer",
-                    fontFamily: "var(--font-cairo), sans-serif",
-                  }}
+                  active={copied}
+                  icon={copied ? <CopyCheck size={14} /> : <Copy size={14} />}
                 >
-                  {copied ? <CopyCheck size={14} /> : <Copy size={14} />}
                   {copied ? s.copied : s.copy}
-                </button>
+                </GhostButton>
               )}
             </div>
 
@@ -1413,7 +1564,21 @@ export default function CareerSkillMentor() {
 
                 {weeklyPlan && (
                   <Panel style={{ marginTop: 20 }}>
-                    <Label>{s.weeklyPlanTitle}</Label>
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                      <Label>{s.weeklyPlanTitle}</Label>
+                      <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                        <GhostButton
+                          onClick={handlePlanCopy}
+                          active={planCopied}
+                          icon={planCopied ? <CopyCheck size={14} /> : <Copy size={14} />}
+                        >
+                          {planCopied ? s.copied : s.copy}
+                        </GhostButton>
+                        <GhostButton onClick={handleSavePdf} icon={<FileDown size={14} />}>
+                          {s.savePdf}
+                        </GhostButton>
+                      </div>
+                    </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                       {weeklyPlan.map((week) => (
                         <div key={week.weekNumber} style={{ display: "flex", gap: 14 }}>
@@ -1470,6 +1635,18 @@ export default function CareerSkillMentor() {
           </div>
         )}
       </div>
+
+      {printJob &&
+        weeklyPlan &&
+        createPortal(
+          <PlanPrintout
+            dir={STRINGS[printJob.lang].dir}
+            t={STRINGS[printJob.lang]}
+            title={printJob.title}
+            weeks={weeklyPlan}
+          />,
+          document.body
+        )}
     </div>
   );
 }
