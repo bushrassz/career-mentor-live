@@ -365,8 +365,12 @@ function collectStrings(value, out = []) {
 // third language) instead of just mixing in a stray word. Checking the actual script of the
 // response — not just its JSON shape — lets callClaudeAndParse retry those cases automatically
 // instead of showing the wrong language to the user.
-function matchesLanguage(parsed, lang) {
-  const text = collectStrings(parsed).join(" ");
+//
+// `proseOf` narrows the check to the fields that are sentences. Without it every string counts, so
+// a reply whose summary is correctly Arabic was rejected when its keywords were English — tool
+// names by design, and sometimes skill phrases the vision model copied from an English CV.
+function matchesLanguage(parsed, lang, proseOf) {
+  const text = collectStrings(proseOf ? proseOf(parsed) : parsed).join(" ");
   const arabicChars = (text.match(/[؀-ۿ]/g) || []).length;
   const latinLetters = (text.match(/[A-Za-z]/g) || []).length;
   if (lang === "ar") return arabicChars >= 10 && arabicChars > latinLetters;
@@ -377,7 +381,7 @@ function matchesLanguage(parsed, lang) {
 // (1 initial try + up to 2 automatic retries) before giving up. Never throws synchronously —
 // every failure mode (network, non-JSON body, truncated/malformed JSON, failed validation)
 // is funneled through the same catch so the caller's try/catch always sees a normal rejection.
-async function callClaudeAndParse(contentBlocks, maxTokens, validate, lang, source, attempts = 3) {
+async function callClaudeAndParse(contentBlocks, maxTokens, validate, lang, source, proseOf, attempts = 3) {
   let lastErr = new Error("unknown-error");
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
@@ -387,7 +391,7 @@ async function callClaudeAndParse(contentBlocks, maxTokens, validate, lang, sour
       // Checked separately from the shape: the model sometimes returns a perfectly valid object
       // that simply mirrors an uploaded document's language instead of the requested one, and
       // reporting that as "malformed" sends anyone debugging it down the wrong path.
-      if (!matchesLanguage(parsed, lang)) throw new Error("wrong-language");
+      if (!matchesLanguage(parsed, lang, proseOf)) throw new Error("wrong-language");
       return parsed;
     } catch (err) {
       lastErr = err;
@@ -879,7 +883,7 @@ export default function CareerSkillMentor() {
     setBusy(true);
     setError("");
     try {
-      const instruction = `${languageDirective(lang)}اقرأ محتوى السيرة الذاتية أو النص المرفق، واستخرج بإيجاز شديد: 1) قائمة كلمات مفتاحية تلخص المهارات والأدوات (6-8 كلمات فقط)، 2) نبذة قصيرة جملة إلى جملتين بس عن الشخص، 3) المجال الوظيفي الحالي الأغلب بكلمتين إلى ثلاث.\n\nأجب بصيغة JSON فقط بدون أي نص إضافي، ابدأ مباشرة بعلامة { وانتهِ بعلامة }، بهذا الشكل بالضبط: {"keywords": ["...", "..."], "bio": "...", "currentField": "..."}`;
+      const instruction = `${languageDirective(lang)}اقرأ محتوى السيرة الذاتية أو النص المرفق، واستخرج بإيجاز شديد: 1) قائمة كلمات مفتاحية تلخص المهارات والأدوات (6-8 كلمات فقط)، 2) نبذة قصيرة جملة إلى جملتين بس عن الشخص، 3) المجال الوظيفي الحالي الأغلب بكلمتين إلى ثلاث.\n\nاكتب الكلمات المفتاحية بلغة الإجابة المطلوبة أعلاه: ترجم المهارات العامة (مثل إدارة الأداء، خدمة العملاء، قيادة الفريق) ولا تنسخها من السيرة بلغتها الأصلية، واترك بالإنجليزية فقط أسماء الأدوات والبرمجيات ولغات البرمجة (مثل Excel، SQL، Figma).\n\nأجب بصيغة JSON فقط بدون أي نص إضافي، ابدأ مباشرة بعلامة { وانتهِ بعلامة }، بهذا الشكل بالضبط: {"keywords": ["...", "..."], "bio": "...", "currentField": "..."}`;
 
       let content;
       if (inputMode === "text") {
@@ -899,7 +903,8 @@ export default function CareerSkillMentor() {
         400,
         (p) => Array.isArray(p.keywords) && !!p.bio,
         lang,
-        "analyze"
+        "analyze",
+        (p) => [p.bio, p.currentField]
       );
       setProfile(parsed);
       setStep("profile");
