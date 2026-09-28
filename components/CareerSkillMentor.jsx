@@ -468,7 +468,7 @@ function GhostButton({ children, onClick, icon, active }) {
 // hide every other top-level node. It renders in the browser's own layout engine, which is what
 // joins Arabic letters and orders mixed Arabic/English text correctly — the PDF libraries tested
 // for this (jsPDF, react-pdf) got one or the other wrong. `dir` and the labels come from the
-// interface language at the moment "Save PDF" was pressed, not from the plan's own text.
+// current interface language, not from the plan's own text.
 function PlanPrintout({ dir, t, title, weeks }) {
   return (
     <div className="cm-print-root" dir={dir}>
@@ -670,9 +670,6 @@ export default function CareerSkillMentor() {
   const [weeklyPlan, setWeeklyPlan] = useState(null);
   const [planError, setPlanError] = useState("");
   const [planCopied, setPlanCopied] = useState(false);
-  // Set when "Save PDF" is pressed: { lang, title }. Snapshotting the language here is what makes
-  // the printout follow the interface as it was at that moment.
-  const [printJob, setPrintJob] = useState(null);
 
   function resetAll() {
     setStep("input");
@@ -959,32 +956,27 @@ export default function CareerSkillMentor() {
     }
   }
 
-  function handleSavePdf() {
-    setPrintJob({ lang, title: planDocTitle });
-  }
+  // The printout stays mounted for as long as the plan is on screen, rather than being added when
+  // "Save PDF" is pressed and removed on `afterprint`. On Android, window.print() returns before
+  // the page is captured and afterprint can fire straight away, which removed the printout first
+  // and produced a blank PDF; printing from the browser's own menu never mounted it at all.
+  const showPrintout = step === "result" && !!weeklyPlan;
 
-  // Runs once the printout has been committed to the DOM. The browser offers document.title as
-  // the PDF's file name, so it is swapped for the plan's title while the print dialog is open.
+  // The browser offers document.title as the PDF's file name. Holding it for as long as the
+  // printout is mounted covers every way of printing, whatever order the print events fire in.
   useEffect(() => {
-    if (!printJob) return;
+    if (!showPrintout) return;
     const previousTitle = document.title;
-    document.title = printJob.title;
-    let cancelled = false;
-    const finish = () => {
-      document.title = previousTitle;
-      setPrintJob(null);
-    };
-    window.addEventListener("afterprint", finish, { once: true });
-    // Cairo's Arabic and Latin subsets load on demand; waiting keeps the print from falling back.
-    document.fonts.ready.then(() => {
-      if (!cancelled) window.print();
-    });
+    document.title = planDocTitle;
     return () => {
-      cancelled = true;
-      window.removeEventListener("afterprint", finish);
       document.title = previousTitle;
     };
-  }, [printJob]);
+  }, [showPrintout, planDocTitle]);
+
+  function handleSavePdf() {
+    // Cairo's Arabic and Latin subsets load on demand; waiting keeps the print from falling back.
+    document.fonts.ready.then(() => window.print());
+  }
 
   const adpListUrl = profile
     ? `https://adplist.org/mentors?search=${encodeURIComponent(profile.currentField || "product management")}`
@@ -1042,7 +1034,7 @@ export default function CareerSkillMentor() {
         @media print {
           @page { size: A4; margin: 16mm 14mm; }
           html, body { background: #fff !important; }
-          body > *:not(.cm-print-root) { display: none !important; }
+          body:has(> .cm-print-root) > *:not(.cm-print-root) { display: none !important; }
           .cm-print-root {
             display: block;
             font-family: var(--font-cairo), sans-serif;
@@ -1641,15 +1633,9 @@ export default function CareerSkillMentor() {
         )}
       </div>
 
-      {printJob &&
-        weeklyPlan &&
+      {showPrintout &&
         createPortal(
-          <PlanPrintout
-            dir={STRINGS[printJob.lang].dir}
-            t={STRINGS[printJob.lang]}
-            title={printJob.title}
-            weeks={weeklyPlan}
-          />,
+          <PlanPrintout dir={s.dir} t={s} title={planDocTitle} weeks={weeklyPlan} />,
           document.body
         )}
     </div>
