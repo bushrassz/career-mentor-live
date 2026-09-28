@@ -56,6 +56,7 @@ const STRINGS = {
     errFileRead: "تعذر قراءة الملف، جرب ملف ثاني أو الصق النص مباشرة.",
     errNoInput: "ارفع ملف أو اكتب نص أول.",
     errAnalyze: "تعذر تحليل المحتوى، حاول مرة ثانية أو الصق النص يدوياً.",
+    errScannedPdf: "ملف PDF هذا صورة ممسوحة ضوئياً بدون نص قابل للقراءة. ارفع سيرتك الذاتية كصورة (PNG أو JPG) بدلاً منه، أو الصق النص يدوياً.",
     analyzing: "يحلل...",
     next: "التالي",
     currentFieldLabel: "مجالك الحالي",
@@ -125,6 +126,7 @@ const STRINGS = {
     errFileRead: "Couldn't read the file. Try another file or paste the text directly.",
     errNoInput: "Upload a file or write some text first.",
     errAnalyze: "Couldn't analyze the content. Try again or paste the text manually.",
+    errScannedPdf: "This PDF is a scanned image with no readable text. Upload your resume as an image (PNG or JPG) instead, or paste the text manually.",
     analyzing: "Analyzing...",
     next: "Next",
     currentFieldLabel: "Your current field",
@@ -313,7 +315,9 @@ async function callClaude(contentBlocks, maxTokens = 800) {
     throw new Error("invalid-response");
   }
   if (!response.ok) {
-    throw new Error(data?.error || "request-failed");
+    const err = new Error(data?.error || "request-failed");
+    err.code = data?.code; // e.g. "scanned-pdf", which no retry can fix
+    throw err;
   }
   return data.text || "";
 }
@@ -359,6 +363,7 @@ async function callClaudeAndParse(contentBlocks, maxTokens, validate, lang, atte
       return parsed;
     } catch (err) {
       lastErr = err;
+      if (err.code === "scanned-pdf") throw err; // the same file will fail the same way again
       if (attempt < attempts - 1) await sleep(600);
     }
   }
@@ -760,7 +765,7 @@ export default function CareerSkillMentor() {
       setStep("profile");
     } catch (err) {
       console.error(err);
-      setError(s.errAnalyze);
+      setError(err.code === "scanned-pdf" ? s.errScannedPdf : s.errAnalyze);
     } finally {
       setBusy(false);
     }
