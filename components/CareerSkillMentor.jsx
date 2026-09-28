@@ -20,6 +20,10 @@ import {
   Target,
   Map as MapIcon,
   ArrowRight as ArrowRightIcon,
+  TrendingUp,
+  FileText,
+  Users,
+  CalendarDays,
 } from "lucide-react";
 
 const COLORS = {
@@ -41,8 +45,22 @@ const STRINGS = {
     appTitle: "مرشدك المهني",
     startOver: "ابدأ من جديد",
     steps: { input: "المعلومات", profile: "ملفك الشخصي", result: "النتيجة" },
-    inputHeading: "خلينا نبدأ من وين أنت الحين",
-    inputSub: "ارفع سيرتك الذاتية، أو اكتب وضعك المهني الحالي بنفسك.",
+    heroFrom: "سيرتك الذاتية",
+    heroTo: "خطتك المهنية",
+    inputHeading: "من سيرتك الذاتية إلى خطوتك المهنية الجاية",
+    inputSub: "ارفع سيرتك أو اكتب عن نفسك، ونحلّل مهاراتك ونقترح لك طريقاً واضحاً.",
+    journeyUpload: "ارفع سيرتك الذاتية",
+    journeyAnalyze: "نحلّل مهاراتك",
+    journeyAnalyzeNote: "كلماتك المفتاحية ومجالك الحالي",
+    journeyChoose: "تختار خطوتك الجاية",
+    newBadge: "جديد",
+    previewOptions: [
+      { title: "مجالات جديدة تناسبك", desc: "بناءً على مهاراتك" },
+      { title: "تعمّق في مجالك", desc: "مهارات وشهادات متقدمة" },
+      { title: "سيرة ذاتية أقوى", desc: "نبذة ونصائح صياغة" },
+      { title: "منتور حقيقي مجاناً", desc: "جلسات عبر ADPList" },
+      { title: "خطة أسابيع لمجال تختاره", desc: "مهام أسبوعية واضحة" },
+    ],
     tabUpload: "رفع سيرة ذاتية",
     tabWrite: "أكتب بنفسي",
     uploadLabel: "PDF أو صورة أو ملف Word (docx)",
@@ -112,8 +130,22 @@ const STRINGS = {
     appTitle: "Career Mentor",
     startOver: "Start Over",
     steps: { input: "Info", profile: "Your Profile", result: "Result" },
-    inputHeading: "Let's start with where you are now",
-    inputSub: "Upload your resume, or describe your current career situation yourself.",
+    heroFrom: "Your resume",
+    heroTo: "your career plan",
+    inputHeading: "From your resume to your next career move",
+    inputSub: "Upload your resume or describe yourself, and we'll analyze your skills and suggest a clear path.",
+    journeyUpload: "Upload your resume",
+    journeyAnalyze: "We analyze your skills",
+    journeyAnalyzeNote: "Your keywords and current field",
+    journeyChoose: "Pick your next step",
+    newBadge: "New",
+    previewOptions: [
+      { title: "Fields that fit you", desc: "Based on your skills" },
+      { title: "Go deeper in your field", desc: "Advanced skills and certificates" },
+      { title: "A stronger resume", desc: "Bio and writing tips" },
+      { title: "A real mentor, free", desc: "Sessions via ADPList" },
+      { title: "A weekly plan for any field", desc: "Clear weekly tasks" },
+    ],
     tabUpload: "Upload Resume",
     tabWrite: "Write it myself",
     uploadLabel: "PDF, image, or Word file (docx)",
@@ -222,31 +254,6 @@ function Emblem({ type, size = 84 }) {
     >
       <Icon size={Math.round(size * 0.42)} color={p.fg} strokeWidth={1.8} />
     </div>
-  );
-}
-
-// ---------- Decorative hero illustration ----------
-function HeroTrail() {
-  return (
-    <svg viewBox="0 0 600 160" width="100%" height="140" style={{ display: "block", overflow: "visible" }}>
-      <path d="M0 150 L120 90 L210 130 L320 40 L420 95 L520 20 L600 55" fill="none" stroke={COLORS.border} strokeWidth="10" strokeLinejoin="round" opacity="0.5" />
-      <path
-        d="M6 140 Q90 70 180 110 T340 55 T520 40"
-        fill="none"
-        stroke={COLORS.pine}
-        strokeWidth="2.5"
-        strokeDasharray="1 10"
-        strokeLinecap="round"
-        className="cm-trail-draw"
-      />
-      <circle cx="6" cy="140" r="6" fill={COLORS.pine} />
-      <circle cx="180" cy="110" r="5" fill={COLORS.panel} stroke={COLORS.pine} strokeWidth="2.5" />
-      <circle cx="340" cy="55" r="5" fill={COLORS.panel} stroke={COLORS.amber} strokeWidth="2.5" />
-      <g transform="translate(514, 20)">
-        <line x1="0" y1="0" x2="0" y2="26" stroke={COLORS.ink} strokeWidth="2" />
-        <path d="M0 0 L18 5 L0 12 Z" fill={COLORS.amber} />
-      </g>
-    </svg>
   );
 }
 
@@ -484,6 +491,113 @@ function GhostButton({ children, onClick, icon, active }) {
       {icon}
       {children}
     </button>
+  );
+}
+
+// One stop on the input screen's journey rail. The rail is the first grid column, so it sits on
+// the start side in both directions — right in Arabic, left in English — with no per-language code.
+function JourneyStep({ number, active, last, title, note, children }) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "28px minmax(0, 1fr)", columnGap: 12 }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }} aria-hidden="true">
+        <span
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: "50%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 13,
+            fontWeight: 700,
+            flexShrink: 0,
+            background: active ? COLORS.pine : COLORS.panel,
+            color: active ? "#fff" : COLORS.pine,
+            border: `2px solid ${COLORS.pine}`,
+          }}
+        >
+          {number}
+        </span>
+        {!last && (
+          <span style={{ flex: 1, minHeight: 16, margin: "6px 0", borderInlineStart: "2px dashed #9DBFB1" }} />
+        )}
+      </div>
+      <div style={{ minWidth: 0, paddingBottom: last ? 0 : 18 }}>
+        <p style={{ margin: "3px 0 12px 0", fontSize: 15, fontWeight: 700, color: COLORS.pineDark, lineHeight: 1.5 }}>
+          {title}
+          {note && <span style={{ fontSize: 13, fontWeight: 400, color: COLORS.inkSoft }}> — {note}</span>}
+        </p>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// What the five options look like before anything is uploaded. Indexes match
+// STRINGS[lang].previewOptions; the palettes are the Emblem ones, so no new colors enter the app.
+const PREVIEW_CARDS = [
+  { Icon: Compass, bg: "#E1F0EA", fg: "#2F6B57" },
+  { Icon: TrendingUp, bg: "#E4E8F5", fg: "#4A5FA3" },
+  { Icon: FileText, bg: "#EEE7F5", fg: "#7A5A9E" },
+  { Icon: Users, bg: "#F6E9D9", fg: "#C9863D" },
+  { Icon: CalendarDays, bg: "#E1F0EA", fg: "#2F6B57", featured: true },
+];
+
+// Deliberately not a button — no arrow, no hover lift — so it doesn't read as something to pick
+// before a CV has been analyzed.
+function PreviewCard({ Icon, bg, fg, featured, title, desc, badge }) {
+  return (
+    <div
+      role="listitem"
+      className={featured ? "cm-preview-featured" : undefined}
+      style={{
+        position: "relative",
+        background: featured ? "#F1F7F4" : COLORS.panel,
+        border: featured ? `1.5px solid ${COLORS.pine}` : `1px solid ${COLORS.border}`,
+        borderRadius: 4,
+        padding: "16px 8px 12px",
+        textAlign: "center",
+      }}
+    >
+      {featured && (
+        <span
+          style={{
+            position: "absolute",
+            top: -10,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: COLORS.amber,
+            color: "#fff",
+            fontSize: 11,
+            fontWeight: 700,
+            lineHeight: 1.6,
+            padding: "0 10px",
+            borderRadius: 20,
+            whiteSpace: "nowrap",
+          }}
+        >
+          {badge}
+        </span>
+      )}
+      <div
+        style={{
+          width: 38,
+          height: 38,
+          borderRadius: 10,
+          background: bg,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          margin: "0 auto 8px",
+        }}
+      >
+        <Icon size={19} color={fg} strokeWidth={1.9} />
+      </div>
+      <p style={{ margin: "0 0 2px 0", fontSize: 13, fontWeight: 700, lineHeight: 1.45, color: featured ? COLORS.pineDark : COLORS.ink }}>
+        {title}
+      </p>
+      <p style={{ margin: 0, fontSize: 11.5, lineHeight: 1.45, color: COLORS.inkSoft }}>{desc}</p>
+    </div>
   );
 }
 
@@ -1069,8 +1183,6 @@ export default function CareerSkillMentor() {
         @keyframes cmFadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .cm-step-enter { animation: cmFadeUp 0.45s ease both; }
 
-        @keyframes cmTrailDraw { from { stroke-dashoffset: 500; } to { stroke-dashoffset: 0; } }
-        .cm-trail-draw { stroke-dashoffset: 500; animation: cmTrailDraw 1.6s ease-out forwards 0.15s; }
 
         .cm-btn { transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease; }
         .cm-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(32,74,61,0.25); filter: brightness(1.05); }
@@ -1092,6 +1204,14 @@ export default function CareerSkillMentor() {
 
         .cm-secondary { transition: background 0.15s ease; }
         .cm-secondary:hover:not(:disabled) { background: #EAF1EE; }
+
+        .cm-preview-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+        @media (max-width: 600px) {
+          .cm-journey { padding: 16px 14px 18px !important; }
+          .cm-journey .cm-tab { padding: 9px 12px !important; }
+          .cm-preview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 8px; }
+          .cm-preview-grid > .cm-preview-featured { grid-column: 1 / -1; }
+        }
 
         .cm-print-root { display: none; }
         @media print {
@@ -1171,19 +1291,38 @@ export default function CareerSkillMentor() {
           </div>
         </div>
 
-        <ProgressSteps step={step} s={s} />
+        {/* The input screen carries its own three-step journey rail, so the bar would repeat it there. */}
+        {step !== "input" && <ProgressSteps step={step} s={s} />}
 
         {step === "input" && (
           <div className="cm-step-enter">
-            <HeroTrail />
-            <h1 style={{ fontFamily: "var(--font-amiri), serif", fontSize: 34, fontWeight: 700, margin: "4px 0 8px 0", lineHeight: 1.3, color: COLORS.pineDark }}>
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: 12,
+                fontWeight: 600,
+                color: COLORS.pineDark,
+                background: "#E1F0EA",
+                borderRadius: 20,
+                padding: "4px 12px",
+              }}
+            >
+              {s.heroFrom}
+              <ArrowRightIcon size={14} aria-hidden="true" style={{ transform: isRtl ? "scaleX(-1)" : "none" }} />
+              {s.heroTo}
+            </span>
+            <h1 style={{ fontFamily: "var(--font-amiri), serif", fontSize: 32, fontWeight: 700, margin: "10px 0 8px 0", lineHeight: 1.35, color: COLORS.pineDark }}>
               {s.inputHeading}
             </h1>
-            <p style={{ color: COLORS.inkSoft, fontSize: 16, lineHeight: 1.8, margin: "0 0 28px 0", maxWidth: 480 }}>
+            <p style={{ color: COLORS.inkSoft, fontSize: 16, lineHeight: 1.8, margin: "0 0 22px 0", maxWidth: 500 }}>
               {s.inputSub}
             </p>
 
-            <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+            <div className="cm-journey" style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 6, padding: "20px 20px 22px", boxShadow: "0 1px 2px rgba(30,42,47,0.04)" }}>
+            <JourneyStep number={1} active title={s.journeyUpload}>
+            <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
               {[
                 { id: "file", label: s.tabUpload },
                 { id: "text", label: s.tabWrite },
@@ -1209,7 +1348,7 @@ export default function CareerSkillMentor() {
               ))}
             </div>
 
-            <Panel style={{ marginBottom: 24 }}>
+            <div>
               {inputMode === "file" ? (
                 <div>
                   <Label>{s.uploadLabel}</Label>
@@ -1247,15 +1386,33 @@ export default function CareerSkillMentor() {
                 </div>
               )}
               {error && <p style={{ color: COLORS.danger, fontSize: 14, marginTop: 12 }}>{error}</p>}
-            </Panel>
+            </div>
 
-            <p style={{ fontSize: 12, color: COLORS.inkSoft, opacity: 0.7, lineHeight: 1.7, margin: "-14px 0 22px 0" }}>
+            <p style={{ fontSize: 12, color: COLORS.inkSoft, opacity: 0.7, lineHeight: 1.7, margin: "10px 0 16px 0" }}>
               {s.privacyNote}
             </p>
 
             <PrimaryButton onClick={extractProfile} disabled={busy} loading={busy}>
               {busy ? s.analyzing : s.next}
             </PrimaryButton>
+            </JourneyStep>
+
+            <JourneyStep number={2} title={s.journeyAnalyze} note={s.journeyAnalyzeNote} />
+
+            <JourneyStep number={3} last title={s.journeyChoose}>
+              <div className="cm-preview-grid" role="list">
+                {PREVIEW_CARDS.map((card, i) => (
+                  <PreviewCard
+                    key={i}
+                    {...card}
+                    title={s.previewOptions[i].title}
+                    desc={s.previewOptions[i].desc}
+                    badge={s.newBadge}
+                  />
+                ))}
+              </div>
+            </JourneyStep>
+            </div>
           </div>
         )}
 
