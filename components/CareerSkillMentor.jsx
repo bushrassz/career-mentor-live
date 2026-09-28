@@ -44,7 +44,6 @@ const STRINGS = {
     dir: "rtl",
     appTitle: "مرشدك المهني",
     startOver: "ابدأ من جديد",
-    steps: { input: "المعلومات", profile: "ملفك الشخصي", result: "النتيجة" },
     heroFrom: "سيرتك الذاتية",
     heroTo: "خطتك المهنية",
     inputHeading: "من سيرتك الذاتية إلى خطوتك المهنية الجاية",
@@ -85,7 +84,6 @@ const STRINGS = {
     save: "حفظ",
     cancel: "إلغاء",
     keywordsLabel: "كلمات مفتاحية",
-    whatNow: "وش تحب تسوي الحين؟",
     options: [
       { title: "أي مجال أتنقل له؟", desc: "اكتشف مجالات جديدة مناسبة لمهاراتك" },
       { title: "تطوير أكثر بمجالي الحالي", desc: "خطة تعميق ومهارات متقدمة" },
@@ -129,7 +127,6 @@ const STRINGS = {
     dir: "ltr",
     appTitle: "Career Mentor",
     startOver: "Start Over",
-    steps: { input: "Info", profile: "Your Profile", result: "Result" },
     heroFrom: "Your resume",
     heroTo: "your career plan",
     inputHeading: "From your resume to your next career move",
@@ -170,7 +167,6 @@ const STRINGS = {
     save: "Save",
     cancel: "Cancel",
     keywordsLabel: "Keywords",
-    whatNow: "What would you like to do now?",
     options: [
       { title: "Which field should I move to?", desc: "Discover new fields that fit your skills" },
       { title: "Grow further in my current field", desc: "A deepening plan and advanced skills" },
@@ -228,7 +224,10 @@ const EMBLEM_ICONS = {
   strategist: Target,
   voyager: MapIcon,
 };
-function Emblem({ type, size = 84 }) {
+// Drawn with the same proportions as the preview cards' icon tiles (radius ≈ 26% of the size, icon
+// half the size, 1.9 stroke), so the two read as one family at any size. The colors already match;
+// at 84px the tint simply covered enough area to look far brighter than the cards' 38px tiles.
+function Emblem({ type, size = 48 }) {
   const palettes = {
     explorer: { bg: "#E1F0EA", fg: "#2F6B57" },
     strategist: { bg: "#E4E8F5", fg: "#4A5FA3" },
@@ -244,7 +243,7 @@ function Emblem({ type, size = 84 }) {
       style={{
         width: size,
         height: size,
-        borderRadius: 14,
+        borderRadius: Math.round(size * 0.26),
         background: p.bg,
         display: "flex",
         alignItems: "center",
@@ -252,7 +251,7 @@ function Emblem({ type, size = 84 }) {
         flexShrink: 0,
       }}
     >
-      <Icon size={Math.round(size * 0.42)} color={p.fg} strokeWidth={1.8} />
+      <Icon size={Math.round(size * 0.5)} color={p.fg} strokeWidth={1.9} />
     </div>
   );
 }
@@ -494,11 +493,35 @@ function GhostButton({ children, onClick, icon, active }) {
   );
 }
 
-// One stop on the input screen's journey rail. The rail is the first grid column, so it sits on
-// the start side in both directions — right in Arabic, left in English — with no per-language code.
-function JourneyStep({ number, active, last, title, note, children }) {
+// The white frame the rail sits in, shared by all three screens.
+function JourneyFrame({ children }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "28px minmax(0, 1fr)", columnGap: 12 }}>
+    <div
+      className="cm-journey"
+      style={{
+        background: COLORS.panel,
+        border: `1px solid ${COLORS.border}`,
+        borderRadius: 6,
+        padding: "20px 20px 22px",
+        boxShadow: "0 1px 2px rgba(30,42,47,0.04)",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// One stop on the journey rail, the app's single progress indicator. The rail is the first grid
+// column, so it sits on the start side in both directions — right in Arabic, left in English —
+// with no per-language code. Done: filled circle with a check and a solid line after it.
+// Current: filled circle with its number. Upcoming: outlined circle, dashed line.
+function JourneyStep({ number, state, last, title, note, children }) {
+  const filled = state !== "upcoming";
+  return (
+    <div
+      style={{ display: "grid", gridTemplateColumns: "28px minmax(0, 1fr)", columnGap: 12 }}
+      aria-current={state === "current" ? "step" : undefined}
+    >
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }} aria-hidden="true">
         <span
           style={{
@@ -511,19 +534,34 @@ function JourneyStep({ number, active, last, title, note, children }) {
             fontSize: 13,
             fontWeight: 700,
             flexShrink: 0,
-            background: active ? COLORS.pine : COLORS.panel,
-            color: active ? "#fff" : COLORS.pine,
+            background: filled ? COLORS.pine : COLORS.panel,
+            color: filled ? "#fff" : COLORS.pine,
             border: `2px solid ${COLORS.pine}`,
           }}
         >
-          {number}
+          {state === "done" ? <Check size={14} strokeWidth={3} /> : number}
         </span>
         {!last && (
-          <span style={{ flex: 1, minHeight: 16, margin: "6px 0", borderInlineStart: "2px dashed #9DBFB1" }} />
+          <span
+            style={{
+              flex: 1,
+              minHeight: 16,
+              margin: "6px 0",
+              borderInlineStart: state === "done" ? `2px solid ${COLORS.pine}` : "2px dashed #9DBFB1",
+            }}
+          />
         )}
       </div>
       <div style={{ minWidth: 0, paddingBottom: last ? 0 : 18 }}>
-        <p style={{ margin: "3px 0 12px 0", fontSize: 15, fontWeight: 700, color: COLORS.pineDark, lineHeight: 1.5 }}>
+        <p
+          style={{
+            margin: children ? "3px 0 12px 0" : "3px 0 0 0",
+            fontSize: 15,
+            fontWeight: 700,
+            color: state === "done" ? COLORS.inkSoft : COLORS.pineDark,
+            lineHeight: 1.5,
+          }}
+        >
           {title}
           {note && <span style={{ fontSize: 13, fontWeight: 400, color: COLORS.inkSoft }}> — {note}</span>}
         </p>
@@ -636,6 +674,7 @@ function PlanPrintout({ dir, t, title, weeks }) {
 function Panel({ children, style }) {
   return (
     <div
+      className="cm-panel"
       style={{
         background: COLORS.panel,
         border: `1px solid ${COLORS.border}`,
@@ -728,43 +767,6 @@ class ResultBoundary extends React.Component {
   }
 }
 
-// ---------- progress indicator ----------
-const STEP_ORDER = ["input", "profile", "result"];
-function ProgressSteps({ step, s }) {
-  const currentIndex = STEP_ORDER.indexOf(step);
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 24 }}>
-      {STEP_ORDER.map((st, i) => (
-        <React.Fragment key={st}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div
-              style={{
-                width: 22,
-                height: 22,
-                borderRadius: "50%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 12,
-                fontWeight: 700,
-                flexShrink: 0,
-                background: i <= currentIndex ? COLORS.pine : "transparent",
-                border: `1.5px solid ${i <= currentIndex ? COLORS.pine : COLORS.border}`,
-                color: i <= currentIndex ? "#fff" : COLORS.inkSoft,
-              }}
-            >
-              {i < currentIndex ? <Check size={12} strokeWidth={3} /> : i + 1}
-            </div>
-            <span style={{ fontSize: 13, color: i === currentIndex ? COLORS.pineDark : COLORS.inkSoft, fontWeight: i === currentIndex ? 700 : 400 }}>
-              {s.steps[st]}
-            </span>
-          </div>
-          {i < STEP_ORDER.length - 1 && <div style={{ flex: 1, height: 1, background: COLORS.border, minWidth: 16 }} />}
-        </React.Fragment>
-      ))}
-    </div>
-  );
-}
 
 // ---------- main component ----------
 export default function CareerSkillMentor() {
@@ -1209,6 +1211,7 @@ export default function CareerSkillMentor() {
         @media (max-width: 600px) {
           .cm-journey { padding: 16px 14px 18px !important; }
           .cm-journey .cm-tab { padding: 9px 12px !important; }
+          .cm-journey .cm-panel { padding: 16px !important; }
           .cm-preview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 8px; }
           .cm-preview-grid > .cm-preview-featured { grid-column: 1 / -1; }
         }
@@ -1291,8 +1294,6 @@ export default function CareerSkillMentor() {
           </div>
         </div>
 
-        {/* The input screen carries its own three-step journey rail, so the bar would repeat it there. */}
-        {step !== "input" && <ProgressSteps step={step} s={s} />}
 
         {step === "input" && (
           <div className="cm-step-enter">
@@ -1320,8 +1321,8 @@ export default function CareerSkillMentor() {
               {s.inputSub}
             </p>
 
-            <div className="cm-journey" style={{ background: COLORS.panel, border: `1px solid ${COLORS.border}`, borderRadius: 6, padding: "20px 20px 22px", boxShadow: "0 1px 2px rgba(30,42,47,0.04)" }}>
-            <JourneyStep number={1} active title={s.journeyUpload}>
+            <JourneyFrame>
+            <JourneyStep number={1} state="current" title={s.journeyUpload}>
             <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
               {[
                 { id: "file", label: s.tabUpload },
@@ -1397,9 +1398,9 @@ export default function CareerSkillMentor() {
             </PrimaryButton>
             </JourneyStep>
 
-            <JourneyStep number={2} title={s.journeyAnalyze} note={s.journeyAnalyzeNote} />
+            <JourneyStep number={2} state="upcoming" title={s.journeyAnalyze} note={s.journeyAnalyzeNote} />
 
-            <JourneyStep number={3} last title={s.journeyChoose}>
+            <JourneyStep number={3} state="upcoming" last title={s.journeyChoose}>
               <div className="cm-preview-grid" role="list">
                 {PREVIEW_CARDS.map((card, i) => (
                   <PreviewCard
@@ -1412,13 +1413,16 @@ export default function CareerSkillMentor() {
                 ))}
               </div>
             </JourneyStep>
-            </div>
+            </JourneyFrame>
           </div>
         )}
 
         {step === "profile" && profile && (
           <div className="cm-step-enter">
-            <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
+            <JourneyFrame>
+            <JourneyStep number={1} state="done" title={s.journeyUpload} />
+            <JourneyStep number={2} state="done" title={s.journeyAnalyze}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18 }}>
               <Emblem type={getArchetypeKey(profile.currentField)} />
               <div>
                 <p style={{ margin: "0 0 4px 0", fontSize: 13, color: COLORS.inkSoft }}>{s.currentFieldLabel}</p>
@@ -1518,8 +1522,9 @@ export default function CareerSkillMentor() {
                 </>
               )}
             </Panel>
+            </JourneyStep>
 
-            <p style={{ fontSize: 15, fontWeight: 600, margin: "0 0 14px 0", color: COLORS.ink }}>{s.whatNow}</p>
+            <JourneyStep number={3} state="current" last title={s.journeyChoose}>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {[
                 { id: 1, ...s.options[0] },
@@ -1615,11 +1620,17 @@ export default function CareerSkillMentor() {
                 </SecondaryButton>
               </div>
             )}
+            </JourneyStep>
+            </JourneyFrame>
           </div>
         )}
 
         {step === "result" && (
           <div className="cm-step-enter">
+            <JourneyFrame>
+            <JourneyStep number={1} state="done" title={s.journeyUpload} />
+            <JourneyStep number={2} state="done" title={s.journeyAnalyze} note={profile?.currentField} />
+            <JourneyStep number={3} state="current" last title={s.journeyChoose}>
             <button
               onClick={() => setStep("profile")}
               style={{ background: "none", border: "none", color: COLORS.pine, fontSize: 14, cursor: "pointer", padding: 0, marginBottom: 18, fontFamily: "var(--font-cairo), sans-serif" }}
@@ -1866,6 +1877,8 @@ export default function CareerSkillMentor() {
               </>
             )}
             </ResultBoundary>
+            </JourneyStep>
+            </JourneyFrame>
           </div>
         )}
       </div>
