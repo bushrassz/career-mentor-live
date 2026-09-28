@@ -322,6 +322,26 @@ async function callClaude(contentBlocks, maxTokens = 800) {
   return data.text || "";
 }
 
+const VALIDATION_FAILURES = new Set(["no-json-found", "malformed-shape", "wrong-language"]);
+
+// Tells the server which check a reply failed, so the rejection shows up in its logs: /api/mentor
+// has already returned 200 by the time the browser rejects a reply. Only the source, the kind and
+// the attempt number are sent — never the reply or the CV — and a failed report is ignored.
+function reportValidationFailure(source, err, attempt) {
+  const kind = VALIDATION_FAILURES.has(err?.message)
+    ? err.message
+    : err instanceof SyntaxError
+      ? "invalid-json"
+      : null;
+  if (!kind || !source) return; // network and HTTP errors are already logged by the server
+  fetch("/api/mentor/client-failure", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ source, kind, attempt }),
+    keepalive: true,
+  }).catch(() => {});
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -349,7 +369,7 @@ function matchesLanguage(parsed, lang) {
 // (1 initial try + up to 2 automatic retries) before giving up. Never throws synchronously —
 // every failure mode (network, non-JSON body, truncated/malformed JSON, failed validation)
 // is funneled through the same catch so the caller's try/catch always sees a normal rejection.
-async function callClaudeAndParse(contentBlocks, maxTokens, validate, lang, attempts = 3) {
+async function callClaudeAndParse(contentBlocks, maxTokens, validate, lang, source, attempts = 3) {
   let lastErr = new Error("unknown-error");
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
@@ -364,6 +384,7 @@ async function callClaudeAndParse(contentBlocks, maxTokens, validate, lang, atte
     } catch (err) {
       lastErr = err;
       if (err.code === "scanned-pdf") throw err; // the same file will fail the same way again
+      reportValidationFailure(source, err, attempt + 1);
       if (attempt < attempts - 1) await sleep(600);
     }
   }
@@ -756,7 +777,8 @@ export default function CareerSkillMentor() {
         content,
         400,
         (p) => Array.isArray(p.keywords) && !!p.bio,
-        lang
+        lang,
+        "analyze"
       );
       setProfile(parsed);
       setStep("profile");
@@ -806,7 +828,8 @@ export default function CareerSkillMentor() {
           [{ type: "text", text: prompt }],
           900,
           (p) => Array.isArray(p.items),
-          lang
+          lang,
+          "option1"
         );
         setResultTitle(s.newFieldsTitle);
         setResultType("items");
@@ -817,7 +840,8 @@ export default function CareerSkillMentor() {
           [{ type: "text", text: prompt }],
           900,
           (p) => Array.isArray(p.items),
-          lang
+          lang,
+          "option2"
         );
         setResultTitle(`${s.deepenTitlePrefix}${profile.currentField}`);
         setResultType("items");
@@ -828,7 +852,8 @@ export default function CareerSkillMentor() {
           [{ type: "text", text: prompt }],
           700,
           (p) => !!p.bio && Array.isArray(p.tips),
-          lang
+          lang,
+          "option3"
         );
         setResultTitle(s.resumeTitle);
         setResultType("resume");
@@ -859,7 +884,8 @@ export default function CareerSkillMentor() {
         [{ type: "text", text: prompt }],
         1200,
         (p) => Array.isArray(p.strengths) && Array.isArray(p.gaps),
-        lang
+        lang,
+        "option5"
       );
       setResultTitle(`${s.transitionTitlePrefix}${field}`);
       setResultType("plan");
