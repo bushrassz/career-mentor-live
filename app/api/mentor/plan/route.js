@@ -9,7 +9,13 @@ const PLAN_MAX_TOKENS = 3000;
 const ATTEMPTS = 3;
 const RETRY_DELAY_MS = 600;
 
-const KNOWN_FAILURES = new Set(["no-json-found", "weeks-missing", "repeated-title", "invalid-gapNumber"]);
+const KNOWN_FAILURES = new Set([
+  "no-json-found",
+  "weeks-missing",
+  "too-many-weeks",
+  "repeated-title",
+  "invalid-gapNumber",
+]);
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -46,14 +52,12 @@ ${formatGaps(gaps)}
 المطلوب منك بناء خطة للمستخدم تساعده في تطوير نفسه وسد الفجوات تدريجيًا،
 مع مراعاة مستواه الحالي بناءً على ما ذُكر أعلاه.
 
-قسّم الخطة على شكل أسابيع مرقّمة (weekNumber) تبدأ من 1. كل فجوة تُعالج خلال
-ما لا يتجاوز 8 أسابيع، بأسلوب سبرنت (sprint-style) يشبه مسارات LinkedIn Learning.
+قسّم الخطة على شكل أسابيع مرقّمة (weekNumber) تبدأ من 1، بأسلوب سبرنت (sprint-style)
+يشبه مسارات LinkedIn Learning. أعطِ كل فجوة مدة مناسبة لعمقها الفعلي.
 يمكن لكل أسبوع أن يحتوي على مهام تخص أكثر من فجوة بنفس الوقت.
 
-اجعل الخطة بأقصر مدة كافية فعلاً لسد الفجوات، دون تكرار حرفي للمهام. 24 أسبوعًا هو
-الحد الأقصى المسموح وليس هدفًا يجب الوصول إليه: إن كانت ست أسابيع تكفي فاجعلها ست
-أسابيع، ولا تُطِل الخطة لمجرد ملء المدة. كل مهمة يجب أن تضيف شيئًا جديدًا ولا تكون
-إعادة صياغة لمهمة سابقة.
+اجعل الخطة بأقصر مدة كافية فعلاً لسد الفجوات، دون تكرار حرفي للمهام، ولا تُطِل الخطة
+لمجرد ملء المدة. كل مهمة يجب أن تضيف شيئًا جديدًا ولا تكون إعادة صياغة لمهمة سابقة.
 
 لا توزّع المهام بالتساوي على الفجوات، بل اجعل عدد المهام لكل فجوة تابعًا لطبيعتها:
 المهارة التقنية المحدودة النطاق (مثل إتقان أوامر أداة معيّنة) تكفيها مهام قليلة خلال
@@ -96,6 +100,17 @@ function validateInput(body) {
   if (badGap) return "كل عنصر في gaps يجب أن يحتوي skill و why و step كنصوص.";
 
   return null;
+}
+
+// The ceiling lives here, not in the prompt. Whenever the prompt named a number of weeks, the
+// model anchored on it: plans came out at exactly 8 or exactly 24 weeks, never in between.
+const MAX_PLAN_WEEKS = 24;
+
+function hasTooManyWeeks(weeks) {
+  return (
+    weeks.length > MAX_PLAN_WEEKS ||
+    weeks.some((week) => typeof week.weekNumber === "number" && week.weekNumber > MAX_PLAN_WEEKS)
+  );
 }
 
 // Asked for a short plan, the model still sometimes pads the weeks out by cycling the same few
@@ -188,6 +203,7 @@ export async function POST(req) {
         if (!Array.isArray(parsed.weeks) || parsed.weeks.length === 0) {
           throw new Error("weeks-missing");
         }
+        if (hasTooManyWeeks(parsed.weeks)) throw new Error("too-many-weeks");
         if (findOverusedTitle(parsed.weeks)) throw new Error("repeated-title");
         if (hasInvalidGapNumber(parsed.weeks, body.gaps.length)) throw new Error("invalid-gapNumber");
         return NextResponse.json({ weeks: toResponseWeeks(parsed.weeks, body.gaps) });
