@@ -62,14 +62,14 @@ const STRINGS = {
     ],
     tabUpload: "رفع سيرة ذاتية",
     tabWrite: "أكتب بنفسي",
-    uploadLabel: "PDF أو صورة أو ملف Word (docx)",
+    uploadLabel: "PDF أو صورة أو ملف Word (docx) — حتى 3 ميجابايت",
     uploadPlaceholder: "اضغط لاختيار ملف",
     privacyNote: "هذه أداة تجريبية للتعلم — لا تُخزَّن بياناتك، لكنها تُعالج عبر خدمات AI خارجية.",
     writeLabel: "اكتب مهاراتك، خبرتك، ومجالك الحالي",
     writePlaceholder:
       "مثال: إدارة منتج، بناء منتجات من الصفر، تنسيق فرق، Figma، SQL أساسي. أعمل حالياً في مجال إدارة المنتجات بالقطاع الحكومي.",
     errUnsupportedFile: "صيغة الملف غير مدعومة. استخدم PDF أو صورة أو Word (docx).",
-    errFileTooLarge: "حجم الملف كبير. الحد الأقصى 5 ميجابايت.",
+    errFileTooLarge: "حجم الملف أكبر من الحد المسموح (3 ميجابايت). جرّب ضغط ملف الـPDF أو تصغير الصورة (مثلاً لقطة شاشة لسيرتك)، أو انسخ نص سيرتك في «أكتب بنفسي».",
     errFileRead: "تعذر قراءة الملف، جرب ملف ثاني أو الصق النص مباشرة.",
     errNoInput: "ارفع ملف أو اكتب نص أول.",
     errAnalyze: "تعذر تحليل المحتوى، حاول مرة ثانية أو الصق النص يدوياً.",
@@ -145,14 +145,14 @@ const STRINGS = {
     ],
     tabUpload: "Upload Resume",
     tabWrite: "Write it myself",
-    uploadLabel: "PDF, image, or Word file (docx)",
+    uploadLabel: "PDF, image, or Word file (docx) — up to 3 MB",
     uploadPlaceholder: "Click to choose a file",
     privacyNote: "This is an experimental learning tool — your data isn't stored, but it is processed by external AI services.",
     writeLabel: "Write your skills, experience, and current field",
     writePlaceholder:
       "Example: Product management, building products from scratch, coordinating teams, Figma, basic SQL. I currently work in product management in the public sector.",
     errUnsupportedFile: "Unsupported file format. Use PDF, an image, or Word (docx).",
-    errFileTooLarge: "That file is too large. The maximum is 5 MB.",
+    errFileTooLarge: "This file is over the 3 MB limit. Try compressing the PDF or using a smaller image (a screenshot of your resume works), or paste your resume's text under “Write it myself”.",
     errFileRead: "Couldn't read the file. Try another file or paste the text directly.",
     errNoInput: "Upload a file or write some text first.",
     errAnalyze: "Couldn't analyze the content. Try again or paste the text manually.",
@@ -296,9 +296,11 @@ const CAREER_FIELDS = [
 
 // ---------- helpers ----------
 
-// Keep in step with MAX_REQUEST_BYTES in app/api/mentor/route.js, which enforces the real
-// limit — this check only spares the user a slow base64 encode before the server rejects it.
-const MAX_FILE_BYTES = 5 * 1024 * 1024;
+// The real ceiling is Vercel's: it rejects function request bodies over ~4.3 MB with a plain-text
+// 413 before our code runs (a 3 MB file, 4 MB once base64-encoded, gets through; 3.3 MB does not).
+// 3 MB leaves room for the encoding and the instruction text. Keep MAX_REQUEST_BYTES in
+// lib/openrouter.js in step.
+const MAX_FILE_BYTES = 3 * 1024 * 1024;
 
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -315,6 +317,12 @@ async function callClaude(contentBlocks, maxTokens = 800) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ contentBlocks, maxTokens }),
   });
+  // Checked before parsing: Vercel's own 413 for an oversized body is plain text, not JSON.
+  if (response.status === 413) {
+    const err = new Error("request-too-large");
+    err.code = "too-large";
+    throw err;
+  }
   let data;
   try {
     data = await response.json();
@@ -395,7 +403,8 @@ async function callClaudeAndParse(contentBlocks, maxTokens, validate, lang, sour
       return parsed;
     } catch (err) {
       lastErr = err;
-      if (err.code === "scanned-pdf") throw err; // the same file will fail the same way again
+      // The same file will fail the same way again, so these skip the retries.
+      if (err.code === "scanned-pdf" || err.code === "too-large") throw err;
       reportValidationFailure(source, err, attempt + 1);
       if (attempt < attempts - 1) await sleep(600);
     }
@@ -910,7 +919,9 @@ export default function CareerSkillMentor() {
       setStep("profile");
     } catch (err) {
       console.error(err);
-      setError(err.code === "scanned-pdf" ? s.errScannedPdf : s.errAnalyze);
+      setError(
+        err.code === "scanned-pdf" ? s.errScannedPdf : err.code === "too-large" ? s.errFileTooLarge : s.errAnalyze
+      );
     } finally {
       setBusy(false);
     }
