@@ -1891,11 +1891,21 @@ export default function CareerSkillMentor() {
                               {week.tasks.map((task, i) => (
                                 <div key={i}>
                                   <p style={{ margin: "0 0 4px 0", fontSize: 15, lineHeight: 1.7 }}>{task.title}</p>
+                                  {/* inline-block, not inline: a wrapped inline span paints each line as
+                                      its own fragment, so long skill names came out ragged and looked
+                                      clipped on phones. As a block it wraps inside one rounded box that
+                                      never grows past its column. */}
                                   <span
                                     style={{
+                                      display: "inline-block",
+                                      maxWidth: "100%",
+                                      boxSizing: "border-box",
+                                      overflowWrap: "anywhere",
+                                      verticalAlign: "top",
                                       fontSize: 12,
-                                      padding: "3px 10px",
-                                      borderRadius: 20,
+                                      lineHeight: 1.55,
+                                      padding: "4px 10px",
+                                      borderRadius: 12,
                                       background: "#EEF0E5",
                                       color: COLORS.pineDark,
                                       border: `1px solid ${COLORS.border}`,
