@@ -569,9 +569,11 @@ function JourneyStep({ number, state, last, title, note, children }) {
         <p
           style={{
             margin: children ? "3px 0 12px 0" : "3px 0 0 0",
-            fontSize: 15,
-            fontWeight: 700,
-            color: state === "done" ? COLORS.inkSoft : COLORS.pineDark,
+            // A label for the step, deliberately lighter than the buttons and cards inside it;
+            // the circle, not the title, carries the step's state.
+            fontSize: 13,
+            fontWeight: 600,
+            color: COLORS.inkSoft,
             lineHeight: 1.5,
           }}
         >
