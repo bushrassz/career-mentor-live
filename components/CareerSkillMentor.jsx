@@ -24,6 +24,7 @@ import {
   FileText,
   Users,
   CalendarDays,
+  ExternalLink,
 } from "lucide-react";
 
 const COLORS = {
@@ -1235,6 +1236,12 @@ export default function CareerSkillMentor() {
           .cm-journey { padding: 16px 14px 18px !important; }
           .cm-journey .cm-tab { padding: 9px 12px !important; }
           .cm-journey .cm-panel { padding: 16px !important; }
+          /* P1: on phones the five options become compact rows — icon and title; the description,
+             which wrapped each card to 90px+, shows only on wider screens. */
+          .cm-opt-list { gap: 8px !important; }
+          .cm-opt { padding: 10px 12px !important; gap: 10px !important; min-height: 52px; }
+          .cm-opt-desc { display: none; }
+          .cm-opt-icon { width: 30px !important; height: 30px !important; border-radius: 8px !important; }
           .cm-preview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 8px; }
           .cm-preview-grid > .cm-preview-featured { grid-column: 1 / -1; }
         }
@@ -1548,7 +1555,7 @@ export default function CareerSkillMentor() {
             </JourneyStep>
 
             <JourneyStep number={3} state="current" last title={s.journeyChoose}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }} className="cm-opt-list">
               {[
                 { id: 1, ...s.options[0] },
                 { id: 2, ...s.options[1] },
@@ -1564,25 +1571,46 @@ export default function CareerSkillMentor() {
                     else runOption(opt.id);
                   }}
                   disabled={busy}
-                  className="cm-card"
+                  className="cm-card cm-opt"
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "space-between",
+                    gap: 12,
                     textAlign: isRtl ? "right" : "left",
-                    padding: "16px 18px",
-                    background: COLORS.panel,
-                    border: `1px solid ${showFieldPicker && opt.custom ? COLORS.pine : COLORS.border}`,
-                    borderRadius: 4,
+                    padding: "14px 16px",
+                    background: opt.custom ? "#F1F7F4" : COLORS.panel,
+                    border: `1px solid ${opt.custom ? COLORS.pine : COLORS.border}`,
+                    borderRadius: 6,
                     cursor: busy ? "default" : "pointer",
                     fontFamily: "var(--font-cairo), sans-serif",
                   }}
                 >
-                  <div>
-                    <p style={{ margin: "0 0 3px 0", fontSize: 15, fontWeight: 700, color: COLORS.ink }}>{opt.title}</p>
-                    <p style={{ margin: 0, fontSize: 13, color: COLORS.inkSoft }}>{opt.desc}</p>
+                  {/* Same icon and palette as this option's preview card on the first screen. */}
+                  <span
+                    aria-hidden="true"
+                    className="cm-opt-icon"
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 9,
+                      background: PREVIEW_CARDS[opt.id - 1].bg,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {React.createElement(PREVIEW_CARDS[opt.id - 1].Icon, { size: 17, color: PREVIEW_CARDS[opt.id - 1].fg, strokeWidth: 1.9 })}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: COLORS.ink, lineHeight: 1.45 }}>{opt.title}</p>
+                    <p className="cm-opt-desc" style={{ margin: "2px 0 0 0", fontSize: 13, color: COLORS.inkSoft }}>{opt.desc}</p>
                   </div>
-                  <ArrowRightIcon size={18} color={COLORS.pine} style={{ transform: isRtl ? "scaleX(-1)" : "none" }} />
+                  {opt.external ? (
+                    <ExternalLink size={17} color={COLORS.pine} aria-hidden="true" style={{ flexShrink: 0 }} />
+                  ) : (
+                    <ArrowRightIcon size={18} color={COLORS.pine} aria-hidden="true" style={{ flexShrink: 0, transform: isRtl ? "scaleX(-1)" : "none" }} />
+                  )}
                 </button>
               ))}
             </div>
