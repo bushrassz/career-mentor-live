@@ -507,7 +507,7 @@ function GhostButton({ children, onClick, icon, active }) {
 }
 
 // The white frame the rail sits in, shared by all three screens.
-function JourneyFrame({ children }) {
+function JourneyFrame({ children, attachedTab }) {
   return (
     <div
       className="cm-journey"
@@ -515,6 +515,8 @@ function JourneyFrame({ children }) {
         background: COLORS.panel,
         border: `1px solid ${COLORS.border}`,
         borderRadius: 6,
+        // Square where a tab sits on it, so the tab's edge runs straight into the frame's.
+        ...(attachedTab && { borderStartStartRadius: 0 }),
         padding: "20px 20px 22px",
         boxShadow: "0 1px 2px rgba(30,42,47,0.04)",
       }}
@@ -1225,12 +1227,14 @@ export default function CareerSkillMentor() {
         .cm-secondary { transition: background 0.15s ease; }
         .cm-secondary:hover:not(:disabled) { background: #EAF1EE; }
 
+        /* The back tab is drawn 34px tall; this invisible strip above it makes the tap target 44px. */
+        .cm-back::before { content: ""; position: absolute; inset: -10px 0 0 0; }
+
         .cm-preview-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
         @media (max-width: 600px) {
           .cm-journey { padding: 16px 14px 18px !important; }
           .cm-journey .cm-tab { padding: 9px 12px !important; }
           .cm-journey .cm-panel { padding: 16px !important; }
-          .cm-back { width: 100%; }
           .cm-preview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 8px; }
           .cm-preview-grid > .cm-preview-featured { grid-column: 1 / -1; }
         }
@@ -1646,34 +1650,41 @@ export default function CareerSkillMentor() {
 
         {step === "result" && (
           <div className="cm-step-enter">
-            {/* Above the frame, where it is the first thing on the screen. The arrow is drawn rather
-                typed: "back" points right in Arabic and left in English, and a typed "←" read as
-                "forward" in the Arabic interface. */}
+            {/* A tab on the frame's top edge, so going back reads as part of the same card rather than
+                a separate, heavier button. Its open bottom and -1px margin sit over the frame's border,
+                which is squared off at that corner. The arrow is drawn rather than typed: "back"
+                points right in Arabic and left in English, and a typed "←" read as "forward" in the
+                Arabic interface. */}
             <button
               onClick={() => setStep("profile")}
               className="cm-secondary cm-back"
               style={{
-                display: "inline-flex",
+                position: "relative",
+                zIndex: 1,
+                // Block-level (flex + fit-content), not inline-flex: as an inline box it sat on a line
+                // box whose descent swallowed the -1px, leaving the frame's border visible under it.
+                display: "flex",
+                width: "fit-content",
                 alignItems: "center",
-                justifyContent: "center",
-                gap: 8,
-                minHeight: 44,
-                padding: "0 18px",
-                marginBottom: 14,
+                gap: 6,
+                minHeight: 34,
+                padding: "0 14px",
+                marginBottom: -1,
                 background: COLORS.panel,
-                border: `1.5px solid ${COLORS.pine}`,
-                borderRadius: 4,
-                color: COLORS.pineDark,
-                fontSize: 14,
-                fontWeight: 700,
+                border: `1px solid ${COLORS.border}`,
+                borderBottom: "none",
+                borderRadius: "8px 8px 0 0",
+                color: COLORS.pine,
+                fontSize: 13,
+                fontWeight: 600,
                 cursor: "pointer",
                 fontFamily: "var(--font-cairo), sans-serif",
               }}
             >
-              <ArrowRightIcon size={18} aria-hidden="true" style={{ transform: isRtl ? "none" : "scaleX(-1)" }} />
+              <ArrowRightIcon size={15} aria-hidden="true" style={{ transform: isRtl ? "none" : "scaleX(-1)" }} />
               {s.backToOptions}
             </button>
-            <JourneyFrame>
+            <JourneyFrame attachedTab>
             <JourneyStep number={1} state="done" title={s.journeyUpload} />
             <JourneyStep number={2} state="done" title={s.journeyAnalyze} note={profile?.currentField} />
             <JourneyStep number={3} state="current" last title={s.journeyChoose}>
