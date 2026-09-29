@@ -8,7 +8,6 @@ import {
   Check,
   Compass,
   Loader2,
-  Upload,
   Pencil,
   Copy,
   CopyCheck,
@@ -24,6 +23,9 @@ import {
   FileText,
   Users,
   CalendarDays,
+  CloudUpload,
+  CircleCheck,
+  FileUp,
   ExternalLink,
 } from "lucide-react";
 
@@ -61,16 +63,21 @@ const STRINGS = {
       { title: "منتور حقيقي مجاناً", desc: "جلسات عبر ADPList" },
       { title: "خطة أسابيع لمجال تختاره", desc: "مهام أسبوعية واضحة" },
     ],
-    tabUpload: "رفع سيرة ذاتية",
-    tabWrite: "أكتب بنفسي",
+    dropTitle: "اسحب سيرتك هنا أو اختر ملفاً",
+    dropTitleTouch: "اختر ملف سيرتك الذاتية",
     uploadLabel: "PDF أو صورة أو ملف Word (docx) — حتى 3 ميجابايت",
-    uploadPlaceholder: "اضغط لاختيار ملف",
+    chooseFile: "اختر ملف",
+    changeFile: "اختر ملفاً آخر",
+    altWritePrompt: "ما عندك ملف؟",
+    altWriteLink: "اكتب عن نفسك بدلاً من ذلك",
+    altUploadPrompt: "عندك ملف سيرة ذاتية؟",
+    altUploadLink: "ارفعه بدلاً من ذلك",
     privacyNote: "هذه أداة تجريبية للتعلم — لا تُخزَّن بياناتك، لكنها تُعالج عبر خدمات AI خارجية.",
     writeLabel: "اكتب مهاراتك، خبرتك، ومجالك الحالي",
     writePlaceholder:
       "مثال: إدارة منتج، بناء منتجات من الصفر، تنسيق فرق، Figma، SQL أساسي. أعمل حالياً في مجال إدارة المنتجات بالقطاع الحكومي.",
     errUnsupportedFile: "صيغة الملف غير مدعومة. استخدم PDF أو صورة أو Word (docx).",
-    errFileTooLarge: "حجم الملف أكبر من الحد المسموح (3 ميجابايت). جرّب ضغط ملف الـPDF أو تصغير الصورة (مثلاً لقطة شاشة لسيرتك)، أو انسخ نص سيرتك في «أكتب بنفسي».",
+    errFileTooLarge: "حجم الملف أكبر من الحد المسموح (3 ميجابايت). جرّب ضغط ملف الـPDF أو تصغير الصورة (مثلاً لقطة شاشة لسيرتك)، أو اختر «اكتب عن نفسك بدلاً من ذلك» والصق نص سيرتك.",
     errFileRead: "تعذر قراءة الملف، جرب ملف ثاني أو الصق النص مباشرة.",
     errNoInput: "ارفع ملف أو اكتب نص أول.",
     errAnalyze: "تعذر تحليل المحتوى، حاول مرة ثانية أو الصق النص يدوياً.",
@@ -144,16 +151,21 @@ const STRINGS = {
       { title: "A real mentor, free", desc: "Sessions via ADPList" },
       { title: "A weekly plan for any field", desc: "Clear weekly tasks" },
     ],
-    tabUpload: "Upload Resume",
-    tabWrite: "Write it myself",
+    dropTitle: "Drop your resume here or choose a file",
+    dropTitleTouch: "Choose your resume file",
     uploadLabel: "PDF, image, or Word file (docx) — up to 3 MB",
-    uploadPlaceholder: "Click to choose a file",
+    chooseFile: "Choose file",
+    changeFile: "Choose another file",
+    altWritePrompt: "No file?",
+    altWriteLink: "Describe yourself instead",
+    altUploadPrompt: "Have a resume file?",
+    altUploadLink: "Upload it instead",
     privacyNote: "This is an experimental learning tool — your data isn't stored, but it is processed by external AI services.",
     writeLabel: "Write your skills, experience, and current field",
     writePlaceholder:
       "Example: Product management, building products from scratch, coordinating teams, Figma, basic SQL. I currently work in product management in the public sector.",
     errUnsupportedFile: "Unsupported file format. Use PDF, an image, or Word (docx).",
-    errFileTooLarge: "This file is over the 3 MB limit. Try compressing the PDF or using a smaller image (a screenshot of your resume works), or paste your resume's text under “Write it myself”.",
+    errFileTooLarge: "This file is over the 3 MB limit. Try compressing the PDF or using a smaller image (a screenshot of your resume works), or choose “Describe yourself instead” and paste your resume's text.",
     errFileRead: "Couldn't read the file. Try another file or paste the text directly.",
     errNoInput: "Upload a file or write some text first.",
     errAnalyze: "Couldn't analyze the content. Try again or paste the text manually.",
@@ -657,6 +669,46 @@ function PreviewCard({ Icon, bg, fg, featured, title, desc, badge }) {
   );
 }
 
+// The lighter, secondary way in under the upload drop zone (and back again): a text link, so the
+// drop zone's green button stays the one obvious primary action.
+function AltInputLink({ prompt, label, onClick, Icon }) {
+  return (
+    <p
+      style={{
+        margin: "12px 0 0",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexWrap: "wrap",
+        gap: 6,
+        fontSize: 13.5,
+        color: COLORS.inkSoft,
+      }}
+    >
+      <Icon size={14} color={COLORS.pine} aria-hidden="true" />
+      {prompt}
+      <button
+        type="button"
+        onClick={onClick}
+        style={{
+          background: "none",
+          border: "none",
+          padding: "6px 2px",
+          color: COLORS.pine,
+          fontSize: 13.5,
+          fontWeight: 700,
+          textDecoration: "underline",
+          textUnderlineOffset: 3,
+          cursor: "pointer",
+          fontFamily: "var(--font-cairo), sans-serif",
+        }}
+      >
+        {label}
+      </button>
+    </p>
+  );
+}
+
 // Print-only copy of the weekly plan, portalled straight into <body> so the print stylesheet can
 // hide every other top-level node. It renders in the browser's own layout engine, which is what
 // joins Arabic letters and orders mixed Arabic/English text correctly — the PDF libraries tested
@@ -799,6 +851,7 @@ export default function CareerSkillMentor() {
 
   const [step, setStep] = useState("input"); // input | profile | result
   const [inputMode, setInputMode] = useState("file"); // file | text
+  const [dragActive, setDragActive] = useState(false);
   const [manualText, setManualText] = useState("");
   const [fileName, setFileName] = useState("");
   const [fileBlock, setFileBlock] = useState(null); // {type, source} for image/document
@@ -850,8 +903,8 @@ export default function CareerSkillMentor() {
     setPlanError("");
   }
 
-  async function handleFile(e) {
-    const file = e.target.files[0];
+  // Shared by the file picker and drag-and-drop onto the drop zone.
+  async function processFile(file) {
     if (!file) return;
     setError("");
     if (file.size > MAX_FILE_BYTES) {
@@ -882,15 +935,39 @@ export default function CareerSkillMentor() {
           image_url: { url: `data:${file.type || "image/png"};base64,${base64}` },
         });
       } else {
+        // Cleared so the drop zone doesn't show a rejected file with a success check.
         setError(s.errUnsupportedFile);
+        setFileName("");
         setFileBlock(null);
       }
     } catch (err) {
       console.error(err);
       setError(s.errFileRead);
+      setFileName("");
+      setFileBlock(null);
     } finally {
       setBusy(false);
     }
+  }
+
+  function handleFile(e) {
+    processFile(e.target.files[0]);
+    e.target.value = ""; // lets the same file be picked again after an error
+  }
+
+  function handleDragOver(e) {
+    e.preventDefault(); // required for the drop event to fire
+    if (!dragActive) setDragActive(true);
+  }
+
+  function handleDragLeave(e) {
+    if (!e.currentTarget.contains(e.relatedTarget)) setDragActive(false);
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    setDragActive(false);
+    processFile(e.dataTransfer.files?.[0]);
   }
 
   async function extractProfile() {
@@ -1214,14 +1291,16 @@ export default function CareerSkillMentor() {
         .cm-card { transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease; }
         .cm-card:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(30,42,47,0.08); border-color: ${COLORS.amber} !important; }
 
-        .cm-tab { transition: transform 0.15s ease, background 0.15s ease; }
-        .cm-tab:hover:not(:disabled) { transform: translateY(-1px); }
 
         .cm-input:focus { outline: none; border-color: ${COLORS.pine} !important; box-shadow: 0 0 0 3px rgba(47,107,87,0.12); }
 
         .cm-suggestion:hover:not(:disabled) { background: #F1EDE0 !important; border-color: ${COLORS.pine} !important; }
 
-        .cm-upload:hover { border-color: ${COLORS.pine} !important; background: #F1EDE0 !important; }
+        .cm-drop:hover { border-color: ${COLORS.pine} !important; background: #EFF5F1 !important; }
+        .cm-drop:focus-within { outline: 2px solid ${COLORS.pine}; outline-offset: 2px; }
+        /* "Drop your resume here" only makes sense with a mouse; touch screens get "Choose your resume file". */
+        .cm-drop-touch { display: none; }
+        @media (hover: none) and (pointer: coarse) { .cm-drop-pointer { display: none; } .cm-drop-touch { display: inline; } }
 
         .cm-ghost:hover { background: #F1EDE0 !important; }
 
@@ -1234,7 +1313,6 @@ export default function CareerSkillMentor() {
         .cm-preview-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
         @media (max-width: 600px) {
           .cm-journey { padding: 16px 14px 18px !important; }
-          .cm-journey .cm-tab { padding: 9px 12px !important; }
           .cm-journey .cm-panel { padding: 16px !important; }
           /* P1: on phones the five options become compact rows — icon and title; the description,
              which wrapped each card to 90px+, shows only on wider screens. */
@@ -1353,71 +1431,99 @@ export default function CareerSkillMentor() {
 
             <JourneyFrame>
             <JourneyStep number={1} state="current" title={s.journeyUpload}>
-            <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
-              {[
-                { id: "file", label: s.tabUpload },
-                { id: "text", label: s.tabWrite },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setInputMode(tab.id)}
-                  className="cm-tab"
+            {/* Upload is the primary path, so it gets the large drop zone and the green button;
+                writing it yourself is the alternative, offered as a lighter link underneath. The
+                whole zone is the file input's <label>, so a tap or click anywhere opens the picker,
+                and on desktop a file can also be dropped onto it. */}
+            {inputMode === "file" ? (
+              <div>
+                <label
+                  className={`cm-drop${dragActive ? " cm-drop-active" : ""}`}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
                   style={{
-                    fontFamily: "var(--font-cairo), sans-serif",
-                    fontSize: 14,
-                    fontWeight: 600,
-                    padding: "9px 18px",
-                    borderRadius: 3,
-                    border: `1px solid ${inputMode === tab.id ? COLORS.pine : COLORS.border}`,
-                    background: inputMode === tab.id ? COLORS.pine : "transparent",
-                    color: inputMode === tab.id ? "#fff" : COLORS.inkSoft,
+                    position: "relative",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    textAlign: "center",
+                    gap: 6,
+                    padding: "22px 16px",
+                    border: `1.5px dashed ${dragActive ? COLORS.pine : "#BFD3C8"}`,
+                    borderRadius: 10,
+                    background: dragActive ? "#EAF1EE" : "#F7FAF8",
                     cursor: "pointer",
+                    transition: "border-color 0.15s ease, background 0.15s ease",
                   }}
                 >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            <div>
-              {inputMode === "file" ? (
-                <div>
-                  <Label>{s.uploadLabel}</Label>
-                  <label
-                    className="cm-upload"
+                  <span
+                    aria-hidden="true"
                     style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: "50%",
+                      background: "#E1F0EA",
                       display: "flex",
                       alignItems: "center",
-                      gap: 10,
-                      border: `1.5px dashed ${COLORS.border}`,
-                      borderRadius: 4,
-                      padding: "20px 16px",
-                      cursor: "pointer",
-                      background: "#FCFAF5",
-                      transition: "border-color 0.15s ease, background 0.15s ease",
+                      justifyContent: "center",
                     }}
                   >
-                    <Upload size={20} color={COLORS.pine} />
-                    <span style={{ fontSize: 14, color: COLORS.inkSoft }}>
-                      {fileName || s.uploadPlaceholder}
-                    </span>
-                    <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.docx" onChange={handleFile} style={{ display: "none" }} />
-                  </label>
-                </div>
-              ) : (
-                <div>
-                  <Label>{s.writeLabel}</Label>
-                  <textarea
-                    value={manualText}
-                    onChange={(e) => setManualText(e.target.value)}
-                    rows={5}
-                    placeholder={s.writePlaceholder}
-                    style={{ ...INPUT_STYLE, resize: "vertical" }}
+                    {fileName ? <CircleCheck size={22} color={COLORS.pine} /> : <CloudUpload size={22} color={COLORS.pine} />}
+                  </span>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: COLORS.ink, overflowWrap: "anywhere" }}>
+                    {fileName || (
+                      <>
+                        <span className="cm-drop-pointer">{s.dropTitle}</span>
+                        <span className="cm-drop-touch">{s.dropTitleTouch}</span>
+                      </>
+                    )}
+                  </span>
+                  <span style={{ fontSize: 12.5, color: COLORS.inkSoft }}>{s.uploadLabel}</span>
+                  <span
+                    className="cm-btn"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      marginTop: 6,
+                      padding: "9px 18px",
+                      borderRadius: 8,
+                      background: COLORS.pine,
+                      color: "#fff",
+                      fontSize: 14,
+                      fontWeight: 700,
+                      boxShadow: "0 2px 8px rgba(47,107,87,0.28)",
+                    }}
+                  >
+                    <FileUp size={16} aria-hidden="true" />
+                    {fileName ? s.changeFile : s.chooseFile}
+                  </span>
+                  {/* Visually hidden rather than display:none, so keyboard users can Tab to it; the zone's
+                      :focus-within outline then shows where focus is. */}
+                  <input
+                    type="file"
+                    accept=".pdf,.png,.jpg,.jpeg,.webp,.docx"
+                    onChange={handleFile}
+                    style={{ position: "absolute", width: 1, height: 1, opacity: 0, overflow: "hidden", pointerEvents: "none" }}
                   />
-                </div>
-              )}
-              {error && <p style={{ color: COLORS.danger, fontSize: 14, marginTop: 12 }}>{error}</p>}
-            </div>
+                </label>
+                <AltInputLink Icon={Pencil} prompt={s.altWritePrompt} label={s.altWriteLink} onClick={() => setInputMode("text")} />
+              </div>
+            ) : (
+              <div>
+                <Label>{s.writeLabel}</Label>
+                <textarea
+                  value={manualText}
+                  onChange={(e) => setManualText(e.target.value)}
+                  rows={5}
+                  placeholder={s.writePlaceholder}
+                  style={{ ...INPUT_STYLE, resize: "vertical" }}
+                />
+                <AltInputLink Icon={FileUp} prompt={s.altUploadPrompt} label={s.altUploadLink} onClick={() => setInputMode("file")} />
+              </div>
+            )}
+            {error && <p style={{ color: COLORS.danger, fontSize: 14, marginTop: 12 }}>{error}</p>}
 
             <p style={{ fontSize: 12, color: COLORS.inkSoft, opacity: 0.7, lineHeight: 1.7, margin: "10px 0 16px 0" }}>
               {s.privacyNote}
