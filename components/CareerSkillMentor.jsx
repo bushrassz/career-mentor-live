@@ -80,6 +80,8 @@ const STRINGS = {
     journeyAnalyzeNote: "كلماتك المفتاحية ومجالك الحالي",
     journeyChoose: "تختار خطوتك الجاية",
     newBadge: "جديد",
+    sourceLabel: "التحليل مبني على",
+    typedSource: "نص كتبته",
     previewTitle: "خياراتك بعد التحليل",
     previewOptions: [
       { title: "مجالات جديدة تناسبك", desc: "بناءً على مهاراتك" },
@@ -168,6 +170,8 @@ const STRINGS = {
     journeyAnalyzeNote: "Your keywords and current field",
     journeyChoose: "Pick your next step",
     newBadge: "New",
+    sourceLabel: "Analysis based on",
+    typedSource: "Text you wrote",
     previewTitle: "Your options after the analysis",
     previewOptions: [
       { title: "Fields that fit you", desc: "Based on your skills" },
@@ -570,7 +574,7 @@ function JourneyFrame({ children, attachedTab }) {
 // column, so it sits on the start side in both directions — right in Arabic, left in English —
 // with no per-language code. Done: filled circle with a check and a solid line after it.
 // Current: filled circle with its number. Upcoming: outlined circle, dashed line.
-function JourneyStep({ number, state, last, title, note, children }) {
+function JourneyStep({ number, state, last, title, note, noteIsName, children }) {
   const filled = state !== "upcoming";
   return (
     <div
@@ -620,7 +624,15 @@ function JourneyStep({ number, state, last, title, note, children }) {
           }}
         >
           {title}
-          {note && <span style={{ fontSize: 13, fontWeight: 400, color: COLORS.inkSoft }}> — {note}</span>}
+          {note && (
+            <>
+              {" — "}
+              {/* A file name keeps its own direction (bdi + plaintext), so its extension stays at its end. */}
+              <bdi style={{ fontSize: 13, fontWeight: 400, color: COLORS.inkSoft, overflowWrap: "anywhere", unicodeBidi: noteIsName ? "plaintext" : undefined }}>
+                {note}
+              </bdi>
+            </>
+          )}
         </p>
         {children}
       </div>
@@ -765,6 +777,84 @@ function ErrorNote({ children }) {
   );
 }
 
+function FieldLabel({ children, htmlFor }) {
+  return (
+    <label htmlFor={htmlFor} style={{ display: "block", fontSize: 14, fontWeight: 700, color: UI.text, margin: "0 0 8px 0" }}>
+      {children}
+    </label>
+  );
+}
+
+const FIELD_STYLE = {
+  width: "100%",
+  minHeight: 46,
+  boxSizing: "border-box",
+  fontFamily: "var(--font-cairo), sans-serif",
+  fontSize: 16,
+  lineHeight: 1.7,
+  padding: "8px 14px",
+  border: `1px solid ${UI.borderStrong}`,
+  borderRadius: 12,
+  background: "#fff",
+  color: UI.text,
+};
+
+function formatFileSize(bytes) {
+  return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+// What the analysis was built from: the uploaded file's name, type and size, or a note that the
+// text was typed in.
+function SourceCard({ label, name, isFile, size }) {
+  const ext = isFile ? (name.split(".").pop() || "").toUpperCase() : "";
+  return (
+    <div style={{ background: UI.surface, border: `1px solid ${UI.border}`, borderRadius: 14, padding: 16 }}>
+      <p style={{ margin: "0 0 10px 0", fontSize: 13, fontWeight: 600, color: UI.muted }}>{label}</p>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span
+          aria-hidden="true"
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 9,
+            background: UI.primaryTint,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          {isFile ? <FileText size={18} color={UI.primary} /> : <Pencil size={17} color={UI.primary} />}
+        </span>
+        <div style={{ minWidth: 0 }}>
+          <p
+            title={name}
+            style={{
+              margin: 0,
+              fontSize: 14,
+              fontWeight: 700,
+              color: UI.text,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              unicodeBidi: isFile ? "plaintext" : undefined,
+            }}
+          >
+            {name}
+          </p>
+          {isFile && size > 0 && (
+            <p style={{ margin: 0, fontSize: 12, color: UI.muted }}>
+              <span dir="ltr">
+                {ext} · {formatFileSize(size)}
+              </span>
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // The lighter, secondary way in under the upload drop zone (and back again): a text link, so the
 // drop zone's green button stays the one obvious primary action.
 function AltInputLink({ prompt, label, onClick, Icon }) {
@@ -855,18 +945,6 @@ function Panel({ children, style }) {
   );
 }
 
-const INPUT_STYLE = {
-  width: "100%",
-  fontFamily: "var(--font-cairo), sans-serif",
-  fontSize: 16,
-  padding: "10px 12px",
-  border: `1px solid ${COLORS.border}`,
-  borderRadius: 3,
-  color: COLORS.ink,
-  background: "#FCFAF5",
-  boxSizing: "border-box",
-};
-
 // ---------- language toggle ----------
 function LanguageToggle({ lang, setLang }) {
   return (
@@ -951,6 +1029,7 @@ export default function CareerSkillMentor() {
   const [dragActive, setDragActive] = useState(false);
   const [manualText, setManualText] = useState("");
   const [fileName, setFileName] = useState("");
+  const [fileSize, setFileSize] = useState(0); // shown beside the file name on the options screen
   const [fileBlock, setFileBlock] = useState(null); // {type, source} for image/document
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -1011,6 +1090,7 @@ export default function CareerSkillMentor() {
       return;
     }
     setFileName(file.name);
+    setFileSize(file.size);
     setBusy(true);
     try {
       const ext = file.name.split(".").pop().toLowerCase();
@@ -1358,6 +1438,8 @@ export default function CareerSkillMentor() {
 
   const START = isRtl ? "right" : "left";
 
+  const sourceName = inputMode === "file" ? fileName : s.typedSource;
+
   const matchingFields = fieldQuery.trim()
     ? CAREER_FIELDS.filter((f) => f.toLowerCase().includes(fieldQuery.toLowerCase()))
     : [];
@@ -1385,12 +1467,12 @@ export default function CareerSkillMentor() {
         .cm-btn:active { transform: translateY(0); }
 
         .cm-card { transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease; }
-        .cm-card:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(30,42,47,0.08); border-color: ${COLORS.amber} !important; }
+        .cm-card:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(30,42,47,0.08); border-color: ${UI.primary} !important; }
 
 
         .cm-input:focus { outline: none; border-color: ${UI.primary} !important; box-shadow: 0 0 0 3px rgba(31,77,58,0.12); }
 
-        .cm-suggestion:hover:not(:disabled) { background: #F1EDE0 !important; border-color: ${COLORS.pine} !important; }
+        .cm-suggestion:hover:not(:disabled) { background: ${UI.surface} !important; border-color: ${UI.primary} !important; }
 
         .cm-drop:hover { border-color: ${UI.primary} !important; background: ${UI.selected} !important; }
         .cm-drop:focus-within { outline: 2px solid ${UI.primary}; outline-offset: 2px; }
@@ -1414,7 +1496,15 @@ export default function CareerSkillMentor() {
         .cm-input-card { padding: 24px; }
         .cm-drop { padding: 36px 24px; }
         .cm-preview-list > [role="listitem"]:not(:last-child):not(:nth-last-child(2)) { border-bottom: 1px solid ${UI.borderSoft}; }
+        .cm-doc-grid { display: grid; grid-template-columns: minmax(0, 1fr) 288px; gap: 32px; align-items: start; }
+        .cm-doc { background: ${UI.surface}; border: 1px solid ${UI.border}; border-radius: 18px; padding: 32px 36px; box-shadow: ${UI.shadowDoc}; }
+        .cm-doc-aside { display: flex; flex-direction: column; gap: 14px; position: sticky; top: 16px; }
+        .cm-screen-title { font-size: 28px; }
         @media (max-width: 899px) {
+          .cm-doc-grid { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+          .cm-doc-aside { position: static; }
+          .cm-doc { padding: 24px; }
+          .cm-screen-title { font-size: 22px; }
           .cm-shell { padding-inline: 20px; }
           .cm-main { padding-block: 24px 40px; }
           .cm-upload-grid { grid-template-columns: minmax(0, 1fr); gap: 28px; }
@@ -1424,14 +1514,17 @@ export default function CareerSkillMentor() {
           .cm-journey { padding: 16px 14px 18px !important; }
           .cm-journey .cm-panel { padding: 16px !important; }
           .cm-input-card { padding: 16px; }
-
+          /* Phones: the doc's content sits straight on the page, as in the handoff. */
+          .cm-doc { background: none; border: none; border-radius: 0; padding: 0; box-shadow: none; }
           .cm-drop { padding: 28px 16px; }
           .cm-brand-name { font-size: 15px !important; }
+          .cm-brand-name-compact { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
           /* P1: on phones the five options become compact rows — icon and title; the description,
              which wrapped each card to 90px+, shows only on wider screens. */
           .cm-opt-list { gap: 8px !important; }
           .cm-opt { padding: 10px 12px !important; gap: 10px !important; min-height: 52px; }
           .cm-opt-desc { display: none; }
+          .cm-opt-title { font-size: 15px !important; }
           .cm-opt-icon { width: 30px !important; height: 30px !important; border-radius: 8px !important; }
         }
 
@@ -1502,7 +1595,11 @@ export default function CareerSkillMentor() {
             >
               {s.brandLetter}
             </span>
-            <span className="cm-brand-name" style={{ fontSize: 17, fontWeight: 800, color: UI.text }}>{s.appTitle}</span>
+            {/* On phones, once "Start over" joins the bar there's no room for the name: the "م" circle
+                stands in for it, and the name stays readable to screen readers. */}
+            <span className={`cm-brand-name${step !== "input" ? " cm-brand-name-compact" : ""}`} style={{ fontSize: 17, fontWeight: 800, color: UI.text }}>
+              {s.appTitle}
+            </span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <LanguageToggle lang={lang} setLang={setLang} />
@@ -1533,9 +1630,9 @@ export default function CareerSkillMentor() {
         </div>
       </header>
 
-      {/* Screens 2 and 3 keep the narrow single column until their own redesign. */}
+      {/* The result screen keeps the narrow single column until its own redesign. */}
       <main className="cm-shell cm-main">
-      <div className={step === "input" ? undefined : "cm-main-narrow"} style={step === "input" ? undefined : { margin: "0 auto" }}>
+      <div className={step === "result" ? "cm-main-narrow" : undefined} style={step === "result" ? { margin: "0 auto" } : undefined}>
         {step === "input" && (
           <div className="cm-step-enter cm-upload-grid">
             <div style={{ minWidth: 0 }}>
@@ -1723,23 +1820,23 @@ export default function CareerSkillMentor() {
         )}
 
         {step === "profile" && profile && (
-          <div className="cm-step-enter">
-            <JourneyFrame>
-            <JourneyStep number={1} state="done" title={s.journeyUpload} />
+          <div className="cm-step-enter cm-doc-grid">
+            <div className="cm-doc">
+            <JourneyStep number={1} state="done" title={s.journeyUpload} note={sourceName} noteIsName={inputMode === "file"} />
             <JourneyStep number={2} state="done" title={s.journeyAnalyze}>
-            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
               <Emblem type={getArchetypeKey(profile.currentField)} />
-              <div>
-                <p style={{ margin: "0 0 4px 0", fontSize: 13, color: COLORS.inkSoft }}>{s.currentFieldLabel}</p>
-                <p style={{ margin: 0, fontFamily: "var(--font-amiri), serif", fontSize: 22, fontWeight: 700, color: COLORS.pineDark }}>
+              <div style={{ minWidth: 0 }}>
+                <p style={{ margin: "0 0 2px 0", fontSize: 13, color: UI.muted }}>{s.currentFieldLabel}</p>
+                <h1 className="cm-screen-title" style={{ margin: 0, fontWeight: 800, lineHeight: 1.4, color: UI.text }}>
                   {profile.currentField}
-                </p>
+                </h1>
               </div>
             </div>
 
-            <Panel style={{ marginBottom: 24 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                <Label>{s.extractedBioLabel}</Label>
+            <div style={{ paddingBottom: 20, marginBottom: 20, borderBottom: `1px solid ${UI.border}` }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
+                <h2 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: UI.muted }}>{s.extractedBioLabel}</h2>
                 {!editingProfile && (
                   <button
                     onClick={startEditProfile}
@@ -1749,16 +1846,18 @@ export default function CareerSkillMentor() {
                       alignItems: "center",
                       gap: 5,
                       background: "none",
-                      border: `1px solid ${COLORS.border}`,
-                      borderRadius: 3,
-                      padding: "4px 10px",
-                      fontSize: 12,
-                      color: COLORS.pine,
+                      border: `1px solid ${UI.borderStrong}`,
+                      borderRadius: 999,
+                      minHeight: 32,
+                      padding: "0 12px",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: UI.primary,
                       cursor: "pointer",
                       fontFamily: "var(--font-cairo), sans-serif",
                     }}
                   >
-                    <Pencil size={12} /> {s.edit}
+                    <Pencil size={13} /> {s.edit}
                   </button>
                 )}
               </div>
@@ -1769,31 +1868,35 @@ export default function CareerSkillMentor() {
                     value={editDraft.bio}
                     onChange={(e) => setEditDraft({ ...editDraft, bio: e.target.value })}
                     rows={3}
+                    aria-label={s.extractedBioLabel}
                     className="cm-input"
-                    style={{ ...INPUT_STYLE, resize: "vertical", marginBottom: 12 }}
+                    style={{ ...FIELD_STYLE, resize: "vertical", marginBottom: 14 }}
                   />
-                  <Label>{s.currentFieldEditLabel}</Label>
+                  <FieldLabel>{s.currentFieldEditLabel}</FieldLabel>
                   <input
                     value={editDraft.currentField}
                     onChange={(e) => setEditDraft({ ...editDraft, currentField: e.target.value })}
                     className="cm-input"
-                    style={{ ...INPUT_STYLE, marginBottom: 12 }}
+                    style={{ ...FIELD_STYLE, marginBottom: 14 }}
                   />
-                  <Label>{s.keywordsEditLabel}</Label>
+                  <FieldLabel>{s.keywordsEditLabel}</FieldLabel>
                   <input
                     value={editDraft.keywords}
                     onChange={(e) => setEditDraft({ ...editDraft, keywords: e.target.value })}
                     className="cm-input"
-                    style={{ ...INPUT_STYLE, marginBottom: 14 }}
+                    style={{ ...FIELD_STYLE, marginBottom: 16 }}
                   />
-                  <div style={{ display: "flex", gap: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <PrimaryButton onClick={saveEditProfile}>{s.save}</PrimaryButton>
                     <button
                       onClick={() => setEditingProfile(false)}
                       style={{
                         fontFamily: "var(--font-cairo), sans-serif",
                         fontSize: 14,
-                        color: COLORS.inkSoft,
+                        fontWeight: 600,
+                        minHeight: 44,
+                        padding: "0 12px",
+                        color: UI.muted,
                         background: "none",
                         border: "none",
                         cursor: "pointer",
@@ -1804,29 +1907,43 @@ export default function CareerSkillMentor() {
                   </div>
                 </div>
               ) : (
-                <>
-                  <p style={{ margin: "0 0 16px 0", fontSize: 15, lineHeight: 1.8 }}>{profile.bio}</p>
-                  <Label>{s.keywordsLabel}</Label>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                    {profile.keywords.map((k, i) => (
-                      <span
-                        key={i}
-                        style={{
-                          fontSize: 13,
-                          padding: "5px 12px",
-                          borderRadius: 20,
-                          background: "#EEF0E5",
-                          color: COLORS.pineDark,
-                          border: `1px solid ${COLORS.border}`,
-                        }}
-                      >
-                        {k}
-                      </span>
-                    ))}
-                  </div>
-                </>
+                <p style={{ margin: 0, fontSize: 15, lineHeight: 1.85, color: "#3D4540" }}>{profile.bio}</p>
               )}
-            </Panel>
+            </div>
+
+            {!editingProfile && (
+              <div style={{ marginBottom: 4 }}>
+                <h2 style={{ margin: "0 0 12px 0", fontSize: 17, fontWeight: 800, color: UI.text }}>{s.keywordsLabel}</h2>
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 8,
+                    padding: 14,
+                    background: UI.surface,
+                    border: `1px solid ${UI.border}`,
+                    borderRadius: 12,
+                  }}
+                >
+                  {profile.keywords.map((k, i) => (
+                    <span
+                      key={i}
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 600,
+                        lineHeight: 1.6,
+                        padding: "4px 12px",
+                        borderRadius: 999,
+                        background: UI.primaryTint,
+                        color: UI.primary,
+                      }}
+                    >
+                      {k}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
             </JourneyStep>
 
             <JourneyStep number={3} state="current" last title={s.journeyChoose}>
@@ -1846,27 +1963,29 @@ export default function CareerSkillMentor() {
                     else runOption(opt.id);
                   }}
                   disabled={busy}
+                  aria-expanded={opt.custom ? showFieldPicker : undefined}
                   className="cm-card cm-opt"
                   style={{
                     display: "flex",
                     alignItems: "center",
                     gap: 12,
-                    textAlign: isRtl ? "right" : "left",
-                    padding: "14px 16px",
-                    background: opt.custom ? "#F1F7F4" : COLORS.panel,
-                    border: `1px solid ${opt.custom ? COLORS.pine : COLORS.border}`,
-                    borderRadius: 6,
+                    textAlign: "start",
+                    minHeight: 64,
+                    padding: "12px 14px",
+                    background: opt.custom ? UI.selected : UI.surface,
+                    border: `1.5px solid ${opt.custom ? UI.primary : UI.border}`,
+                    borderRadius: 14,
                     cursor: busy ? "default" : "pointer",
                     fontFamily: "var(--font-cairo), sans-serif",
                   }}
                 >
-                  {/* Same icon and palette as this option's preview card on the first screen. */}
+                  {/* Same icon and palette as this option's preview row on the first screen. */}
                   <span
                     aria-hidden="true"
                     className="cm-opt-icon"
                     style={{
-                      width: 34,
-                      height: 34,
+                      width: 36,
+                      height: 36,
                       borderRadius: 9,
                       background: PREVIEW_CARDS[opt.id - 1].bg,
                       display: "flex",
@@ -1875,30 +1994,39 @@ export default function CareerSkillMentor() {
                       flexShrink: 0,
                     }}
                   >
-                    {React.createElement(PREVIEW_CARDS[opt.id - 1].Icon, { size: 17, color: PREVIEW_CARDS[opt.id - 1].fg, strokeWidth: 1.9 })}
+                    {React.createElement(PREVIEW_CARDS[opt.id - 1].Icon, { size: 18, color: PREVIEW_CARDS[opt.id - 1].fg, strokeWidth: 1.9 })}
                   </span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: COLORS.ink, lineHeight: 1.45 }}>{opt.title}</p>
-                    <p className="cm-opt-desc" style={{ margin: "2px 0 0 0", fontSize: 13, color: COLORS.inkSoft }}>{opt.desc}</p>
+                    <p className="cm-opt-title" style={{ margin: 0, fontSize: 16, fontWeight: 700, color: opt.custom ? UI.primary : UI.text, lineHeight: 1.45 }}>{opt.title}</p>
+                    <p className="cm-opt-desc" style={{ margin: "2px 0 0 0", fontSize: 13, color: UI.muted }}>{opt.desc}</p>
                   </div>
                   {opt.external ? (
-                    <ExternalLink size={17} color={COLORS.pine} aria-hidden="true" style={{ flexShrink: 0 }} />
+                    <ExternalLink size={17} color={UI.primary} aria-hidden="true" style={{ flexShrink: 0 }} />
                   ) : (
-                    <ArrowRightIcon size={18} color={COLORS.pine} aria-hidden="true" style={{ flexShrink: 0, transform: isRtl ? "scaleX(-1)" : "none" }} />
+                    <ArrowRightIcon size={18} color={UI.primary} aria-hidden="true" style={{ flexShrink: 0, transform: isRtl ? "scaleX(-1)" : "none" }} />
                   )}
                 </button>
               ))}
             </div>
 
             {showFieldPicker && (
-              <Panel style={{ marginTop: 14 }}>
-                <Label>{s.fieldPickerLabel}</Label>
+              <div
+                style={{
+                  marginTop: 10,
+                  padding: 16,
+                  background: UI.selected,
+                  border: `1.5px solid ${UI.primary}`,
+                  borderRadius: 14,
+                }}
+              >
+                <FieldLabel htmlFor="cm-field">{s.fieldPickerLabel}</FieldLabel>
                 <input
+                  id="cm-field"
                   value={fieldQuery}
                   onChange={(e) => setFieldQuery(e.target.value)}
                   placeholder={s.fieldPickerPlaceholder}
                   className="cm-input"
-                  style={{ ...INPUT_STYLE, marginBottom: 12 }}
+                  style={{ ...FIELD_STYLE, marginBottom: 12 }}
                 />
                 {fieldQuery.trim() && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
@@ -1909,45 +2037,54 @@ export default function CareerSkillMentor() {
                         disabled={busy}
                         className="cm-suggestion"
                         style={{
-                          textAlign: isRtl ? "right" : "left",
-                          padding: "9px 12px",
+                          textAlign: "start",
+                          minHeight: 44,
+                          padding: "0 14px",
                           fontSize: 14,
+                          fontWeight: 600,
                           fontFamily: "var(--font-cairo), sans-serif",
-                          background: "#FCFAF5",
-                          border: `1px solid ${COLORS.border}`,
-                          borderRadius: 3,
+                          background: "#fff",
+                          border: `1px solid ${UI.border}`,
+                          borderRadius: 10,
                           cursor: busy ? "default" : "pointer",
-                          color: COLORS.ink,
+                          color: UI.text,
                         }}
                       >
                         {f}
                       </button>
                     ))}
                     {matchingFields.length === 0 && (
-                      <p style={{ fontSize: 13, color: COLORS.inkSoft, margin: 0 }}>{s.noMatch}</p>
+                      <p style={{ fontSize: 13, color: UI.muted, margin: 0 }}>{s.noMatch}</p>
                     )}
                   </div>
                 )}
                 <PrimaryButton onClick={() => runCustomFieldPlan(fieldQuery)} disabled={busy || !fieldQuery.trim()} loading={busy}>
                   {busy ? s.preparingPlan : s.preparePlan}
                 </PrimaryButton>
-              </Panel>
+              </div>
             )}
             {busy && (
-              <p style={{ display: "flex", alignItems: "center", gap: 8, color: COLORS.inkSoft, fontSize: 14, marginTop: 14 }}>
+              <p role="status" style={{ display: "flex", alignItems: "center", gap: 8, color: UI.muted, fontSize: 14, marginTop: 14 }}>
                 <Loader2 size={16} className="spin" /> {s.preparingRecs}
               </p>
             )}
             {error && (
               <div style={{ marginTop: 12 }}>
-                <p style={{ color: COLORS.danger, fontSize: 14, margin: "0 0 10px 0" }}>{error}</p>
-                <SecondaryButton onClick={retryLastOption} disabled={busy} loading={busy}>
-                  {s.retry}
-                </SecondaryButton>
+                <ErrorNote>{error}</ErrorNote>
+                <div style={{ marginTop: 10 }}>
+                  <SecondaryButton onClick={retryLastOption} disabled={busy} loading={busy}>
+                    {s.retry}
+                  </SecondaryButton>
+                </div>
               </div>
             )}
             </JourneyStep>
-            </JourneyFrame>
+            </div>
+
+            <aside className="cm-doc-aside">
+              <SaveNotice>{s.privacyNote}</SaveNotice>
+              <SourceCard label={s.sourceLabel} name={sourceName} isFile={inputMode === "file"} size={inputMode === "file" ? fileSize : 0} />
+            </aside>
           </div>
         )}
 
