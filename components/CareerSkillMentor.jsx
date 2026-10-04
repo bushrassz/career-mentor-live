@@ -144,7 +144,7 @@ const STRINGS = {
     resumeTipsLabel: "نصائح لتحسين السيرة الذاتية",
     strengthsLabel: "نقاط قوتك تجاه هذا الهدف",
     gapsLabel: "الفجوات اللي تحتاج تسدّها",
-    actionPlanLabel: "خطة العمل",
+    noGaps: "ما لقينا فجوات واضحة لهذا المجال.",
     generatePlan: "ولّد لي خطة أسابيع",
     generatingPlan: "يولّد الخطة...",
     weeklyPlanTitle: "خطة الأسابيع",
@@ -234,7 +234,7 @@ const STRINGS = {
     resumeTipsLabel: "Tips to improve your resume",
     strengthsLabel: "Your strengths toward this goal",
     gapsLabel: "Gaps you need to close",
-    actionPlanLabel: "Action plan",
+    noGaps: "We didn't find any clear gaps for this field.",
     generatePlan: "Generate a weekly plan",
     generatingPlan: "Generating the plan...",
     weeklyPlanTitle: "Weekly plan",
@@ -455,14 +455,6 @@ async function callClaudeAndParse(contentBlocks, maxTokens, validate, lang, sour
 }
 
 // ---------- small UI atoms ----------
-function Label({ children }) {
-  return (
-    <p style={{ fontFamily: "var(--font-cairo), sans-serif", fontSize: 14, color: COLORS.inkSoft, margin: "0 0 10px 0", lineHeight: 1.6 }}>
-      {children}
-    </p>
-  );
-}
-
 function PrimaryButton({ children, onClick, disabled, loading }) {
   return (
     <button
@@ -535,11 +527,13 @@ function GhostButton({ children, onClick, icon, active }) {
         gap: 6,
         flexShrink: 0,
         background: "none",
-        border: `1px solid ${COLORS.border}`,
-        borderRadius: 3,
-        padding: "7px 12px",
+        border: `1px solid ${UI.borderStrong}`,
+        borderRadius: 999,
+        minHeight: 36,
+        padding: "0 14px",
         fontSize: 13,
-        color: active ? COLORS.pine : COLORS.inkSoft,
+        fontWeight: 600,
+        color: active ? UI.primary : UI.muted,
         cursor: "pointer",
         fontFamily: "var(--font-cairo), sans-serif",
       }}
@@ -547,26 +541,6 @@ function GhostButton({ children, onClick, icon, active }) {
       {icon}
       {children}
     </button>
-  );
-}
-
-// The white frame the rail sits in, shared by all three screens.
-function JourneyFrame({ children, attachedTab }) {
-  return (
-    <div
-      className="cm-journey"
-      style={{
-        background: COLORS.panel,
-        border: `1px solid ${COLORS.border}`,
-        borderRadius: 6,
-        // Square where a tab sits on it, so the tab's edge runs straight into the frame's.
-        ...(attachedTab && { borderStartStartRadius: 0 }),
-        padding: "20px 20px 22px",
-        boxShadow: "0 1px 2px rgba(30,42,47,0.04)",
-      }}
-    >
-      {children}
-    </div>
   );
 }
 
@@ -855,6 +829,153 @@ function SourceCard({ label, name, isFile, size }) {
   );
 }
 
+// Each gap's colour, by its position in the gap list: the handoff's six hues (its oklch values in
+// sRGB), repeating after six. The number drawn on top is what really tells gaps apart, so the
+// repeat, colour blindness and black-and-white printing don't lose anything.
+const GAP_COLORS = [
+  { fg: "#2C6C47", tint: "#DCF2E3" },
+  { fg: "#825023", tint: "#FBE7D8" },
+  { fg: "#32618E", tint: "#DDEDFF" },
+  { fg: "#89474D", tint: "#FFE4E5" },
+  { fg: "#665189", tint: "#EEE7FD" },
+  { fg: "#006C72", tint: "#D5F2F3" },
+];
+const UNKNOWN_GAP_COLOR = { fg: UI.muted, tint: "#ECE8DF" };
+
+function gapColor(index) {
+  return index >= 0 ? GAP_COLORS[index % GAP_COLORS.length] : UNKNOWN_GAP_COLOR;
+}
+
+// The numbered circle that marks list items. Filled by default; `outline` for plain numbered lists.
+function NumberBadge({ n, color = UI.primary, outline }) {
+  return (
+    <span
+      style={{
+        width: 32,
+        height: 32,
+        borderRadius: "50%",
+        boxSizing: "border-box",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+        fontSize: 14,
+        fontWeight: 800,
+        background: outline ? UI.surface : color,
+        color: outline ? color : "#fff",
+        border: outline ? `1.5px solid ${color}` : "none",
+      }}
+    >
+      {n}
+    </span>
+  );
+}
+
+// A badge on a vertical line, with its content beside it. The line runs on the start side in both
+// directions because it is the grid's first column.
+function RailItem({ badge, last, children }) {
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "32px minmax(0, 1fr)", columnGap: 12 }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }} aria-hidden="true">
+        {badge}
+        {!last && <span style={{ flex: 1, width: 2, margin: "4px 0", background: UI.border, borderRadius: 1 }} />}
+      </div>
+      <div style={{ minWidth: 0, paddingBottom: last ? 0 : 20 }}>{children}</div>
+    </div>
+  );
+}
+
+function SectionTitle({ children, style }) {
+  return <h2 style={{ margin: "0 0 12px 0", fontSize: 17, fontWeight: 800, color: UI.text, ...style }}>{children}</h2>;
+}
+
+// One bordered list, rows divided by a hairline, each with a filled check.
+function CheckList({ items }) {
+  return (
+    <ul style={{ listStyle: "none", margin: 0, padding: 0, background: UI.surface, border: `1px solid ${UI.border}`, borderRadius: 12 }}>
+      {items.map((text, i) => (
+        <li
+          key={i}
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 10,
+            padding: "12px 14px",
+            borderTop: i === 0 ? "none" : `1px solid ${UI.borderSoft}`,
+          }}
+        >
+          <span
+            aria-hidden="true"
+            style={{
+              width: 22,
+              height: 22,
+              marginTop: 2,
+              borderRadius: "50%",
+              background: UI.primary,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <Check size={13} color="#fff" strokeWidth={3} />
+          </span>
+          <span style={{ fontSize: 15, fontWeight: 500, lineHeight: 1.7, color: UI.text }}>{text}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+// The gap a task serves: its number in a dot of the gap's colour, then its name on the gap's tint.
+// A flex box that never grows past its column, so a long gap name wraps inside one rounded chip
+// instead of painting ragged per-line fragments (the inline-span bug fixed earlier on phones).
+function GapChip({ index, name }) {
+  const c = gapColor(index);
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "flex-start",
+        gap: 6,
+        maxWidth: "100%",
+        boxSizing: "border-box",
+        verticalAlign: "top",
+        paddingBlock: 3,
+        paddingInline: "3px 10px",
+        borderRadius: 14,
+        background: c.tint,
+        color: c.fg,
+        fontSize: 12,
+        fontWeight: 600,
+        lineHeight: 1.55,
+      }}
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          width: 16,
+          height: 16,
+          marginTop: 1.5,
+          borderRadius: "50%",
+          background: c.fg,
+          color: "#fff",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+          fontSize: 10,
+          fontWeight: 800,
+          lineHeight: 1,
+        }}
+      >
+        {index >= 0 ? index + 1 : "–"}
+      </span>
+      <span style={{ minWidth: 0, overflowWrap: "anywhere" }}>{name}</span>
+    </span>
+  );
+}
+
 // The lighter, secondary way in under the upload drop zone (and back again): a text link, so the
 // drop zone's green button stays the one obvious primary action.
 function AltInputLink({ prompt, label, onClick, Icon }) {
@@ -927,24 +1048,6 @@ function PlanPrintout({ dir, t, title, weeks }) {
   );
 }
 
-function Panel({ children, style }) {
-  return (
-    <div
-      className="cm-panel"
-      style={{
-        background: COLORS.panel,
-        border: `1px solid ${COLORS.border}`,
-        borderRadius: 4,
-        padding: 24,
-        boxShadow: "0 1px 2px rgba(30,42,47,0.04)",
-        ...style,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
 // ---------- language toggle ----------
 function LanguageToggle({ lang, setLang }) {
   return (
@@ -1003,8 +1106,10 @@ class ResultBoundary extends React.Component {
     if (this.state.hasError) {
       return (
         <div>
-          <p style={{ color: COLORS.danger, fontSize: 14, marginBottom: 12 }}>{this.props.message}</p>
-          <PrimaryButton onClick={this.props.onReset}>{this.props.backLabel}</PrimaryButton>
+          <ErrorNote>{this.props.message}</ErrorNote>
+          <div style={{ marginTop: 12 }}>
+            <PrimaryButton onClick={this.props.onReset}>{this.props.backLabel}</PrimaryButton>
+          </div>
         </div>
       );
     }
@@ -1343,6 +1448,7 @@ export default function CareerSkillMentor() {
       resultData.strengths.forEach((st) => (out += `- ${st}\n`));
       out += s.copyGapsLabel;
       resultData.gaps.forEach((g, i) => (out += `${i + 1}. ${g.skill} — ${g.why}\n   ${s.stepLabel}${g.step}\n`));
+      if (resultData.gaps.length === 0) out += `${s.noGaps}\n`;
     }
     return out;
   }
@@ -1436,8 +1542,6 @@ export default function CareerSkillMentor() {
     ? `https://adplist.org/mentors?search=${encodeURIComponent(profile.currentField || "product management")}`
     : "https://adplist.org";
 
-  const START = isRtl ? "right" : "left";
-
   const sourceName = inputMode === "file" ? fileName : s.typedSource;
 
   const matchingFields = fieldQuery.trim()
@@ -1490,7 +1594,6 @@ export default function CareerSkillMentor() {
 
         .cm-shell { max-width: 1040px; margin: 0 auto; padding-inline: 32px; box-sizing: border-box; }
         .cm-main { padding-block: 40px 56px; }
-        .cm-main-narrow { max-width: 640px; }
         .cm-upload-grid { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 40px; align-items: start; }
         .cm-hero-title { font-size: 40px; }
         .cm-input-card { padding: 24px; }
@@ -1500,6 +1603,10 @@ export default function CareerSkillMentor() {
         .cm-doc { background: ${UI.surface}; border: 1px solid ${UI.border}; border-radius: 18px; padding: 32px 36px; box-shadow: ${UI.shadowDoc}; }
         .cm-doc-aside { display: flex; flex-direction: column; gap: 14px; position: sticky; top: 16px; }
         .cm-screen-title { font-size: 28px; }
+        .cm-week { display: grid; grid-template-columns: 36px minmax(0, 1fr); column-gap: 14px; }
+        .cm-week-badge { width: 36px; height: 36px; border-radius: 50%; background: ${UI.primary}; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; flex-shrink: 0; }
+        .cm-week-title { font-size: 18px; }
+        .cm-task-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: start; }
         @media (max-width: 899px) {
           .cm-doc-grid { grid-template-columns: minmax(0, 1fr); gap: 24px; }
           .cm-doc-aside { position: static; }
@@ -1511,11 +1618,17 @@ export default function CareerSkillMentor() {
           .cm-hero-title { font-size: 28px; }
         }
         @media (max-width: 600px) {
-          .cm-journey { padding: 16px 14px 18px !important; }
-          .cm-journey .cm-panel { padding: 16px !important; }
           .cm-input-card { padding: 16px; }
-          /* Phones: the doc's content sits straight on the page, as in the handoff. */
+          /* Phones: the doc's content sits straight on the page, as in the handoff — except on the
+             result screen, whose "Back to options" tab needs the card's edge to attach to. */
           .cm-doc { background: none; border: none; border-radius: 0; padding: 0; box-shadow: none; }
+          .cm-doc.cm-doc-keep { background: ${UI.surface}; border: 1px solid ${UI.border}; border-radius: 18px; padding: 18px 14px; box-shadow: ${UI.shadowDoc}; }
+          .cm-week { grid-template-columns: 32px minmax(0, 1fr); column-gap: 10px; }
+          .cm-week-badge { width: 32px; height: 32px; font-size: 14px; }
+          .cm-week-title { font-size: 16px; }
+          .cm-task-grid { grid-template-columns: minmax(0, 1fr); }
+          .cm-plan-actions { width: 100%; }
+          .cm-plan-actions > button { flex: 1; justify-content: center; white-space: nowrap; padding: 0 12px !important; }
           .cm-drop { padding: 28px 16px; }
           .cm-brand-name { font-size: 15px !important; }
           .cm-brand-name-compact { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -1630,9 +1743,8 @@ export default function CareerSkillMentor() {
         </div>
       </header>
 
-      {/* The result screen keeps the narrow single column until its own redesign. */}
       <main className="cm-shell cm-main">
-      <div className={step === "result" ? "cm-main-narrow" : undefined} style={step === "result" ? { margin: "0 auto" } : undefined}>
+      <div>
         {step === "input" && (
           <div className="cm-step-enter cm-upload-grid">
             <div style={{ minWidth: 0 }}>
@@ -2089,9 +2201,10 @@ export default function CareerSkillMentor() {
         )}
 
         {step === "result" && (
-          <div className="cm-step-enter">
-            {/* A tab on the frame's top edge, so going back reads as part of the same card rather than
-                a separate, heavier button. Its open bottom and -1px margin sit over the frame's border,
+          <div className="cm-step-enter cm-doc-grid">
+            <div style={{ minWidth: 0 }}>
+            {/* A tab on the doc's top edge, so going back reads as part of the same card rather than
+                a separate, heavier button. Its open bottom and -1px margin sit over the doc's border,
                 which is squared off at that corner. The arrow is drawn rather than typed: "back"
                 points right in Arabic and left in English, and a typed "←" read as "forward" in the
                 Arabic interface. */}
@@ -2102,7 +2215,7 @@ export default function CareerSkillMentor() {
                 position: "relative",
                 zIndex: 1,
                 // Block-level (flex + fit-content), not inline-flex: as an inline box it sat on a line
-                // box whose descent swallowed the -1px, leaving the frame's border visible under it.
+                // box whose descent swallowed the -1px, leaving the doc's border visible under it.
                 display: "flex",
                 width: "fit-content",
                 alignItems: "center",
@@ -2110,11 +2223,11 @@ export default function CareerSkillMentor() {
                 minHeight: 34,
                 padding: "0 14px",
                 marginBottom: -1,
-                background: COLORS.panel,
-                border: `1px solid ${COLORS.border}`,
+                background: UI.surface,
+                border: `1px solid ${UI.border}`,
                 borderBottom: "none",
-                borderRadius: "8px 8px 0 0",
-                color: COLORS.pine,
+                borderRadius: "10px 10px 0 0",
+                color: UI.primary,
                 fontSize: 13,
                 fontWeight: 600,
                 cursor: "pointer",
@@ -2124,16 +2237,16 @@ export default function CareerSkillMentor() {
               <ArrowRightIcon size={15} aria-hidden="true" style={{ transform: isRtl ? "none" : "scaleX(-1)" }} />
               {s.backToOptions}
             </button>
-            <JourneyFrame attachedTab>
-            <JourneyStep number={1} state="done" title={s.journeyUpload} />
+            <div className="cm-doc cm-doc-keep" style={{ borderStartStartRadius: 0 }}>
+            <JourneyStep number={1} state="done" title={s.journeyUpload} note={sourceName} noteIsName={inputMode === "file"} />
             <JourneyStep number={2} state="done" title={s.journeyAnalyze} note={profile?.currentField} />
             <JourneyStep number={3} state="current" last title={s.journeyChoose}>
 
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 18 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 20 }}>
               {resultTitle && (
-                <h2 style={{ fontFamily: "var(--font-amiri), serif", fontSize: 24, fontWeight: 700, color: COLORS.pineDark, margin: 0 }}>
+                <h1 className="cm-screen-title" style={{ fontWeight: 800, lineHeight: 1.45, color: UI.text, margin: 0 }}>
                   {resultTitle}
-                </h2>
+                </h1>
               )}
               {resultData && (
                 <GhostButton
@@ -2148,238 +2261,169 @@ export default function CareerSkillMentor() {
 
             <ResultBoundary key={selectedOption} message={s.genericError} backLabel={s.backToOptions} onReset={() => setStep("profile")}>
             {resultType === "items" && resultData && (
-              <Panel>
-                <div style={{ position: "relative", [isRtl ? "paddingRight" : "paddingLeft"]: 4 }}>
-                  <div style={{ position: "absolute", [START]: 13, top: 8, bottom: 8, width: 2, background: COLORS.border }} />
-                  {resultData.items.map((it, i) => (
-                    <div key={i} style={{ position: "relative", display: "flex", gap: 14, marginBottom: i === resultData.items.length - 1 ? 0 : 20 }}>
-                      <div
-                        style={{
-                          width: 28,
-                          height: 28,
-                          borderRadius: "50%",
-                          background: COLORS.panel,
-                          border: `2px solid ${COLORS.amber}`,
-                          color: COLORS.amber,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: 13,
-                          fontWeight: 700,
-                          flexShrink: 0,
-                          zIndex: 1,
-                        }}
-                      >
-                        {i + 1}
-                      </div>
-                      <div>
-                        <p style={{ margin: "3px 0 4px 0", fontSize: 15, fontWeight: 700 }}>{it.title}</p>
-                        <p style={{ margin: "0 0 6px 0", fontSize: 14, color: COLORS.inkSoft, lineHeight: 1.7 }}>{it.why}</p>
-                        <p style={{ margin: 0, fontSize: 14, color: COLORS.pineDark, lineHeight: 1.7 }}>
-                          <strong>{s.stepLabel}</strong>
-                          {it.step}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </Panel>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                {resultData.items.map((it, i) => (
+                  <RailItem key={i} last={i === resultData.items.length - 1} badge={<NumberBadge n={i + 1} outline />}>
+                    <h2 style={{ margin: "4px 0 4px 0", fontSize: 16, fontWeight: 700, color: UI.text, lineHeight: 1.5 }}>{it.title}</h2>
+                    <p style={{ margin: "0 0 6px 0", fontSize: 14, color: UI.muted, lineHeight: 1.75 }}>{it.why}</p>
+                    <p style={{ margin: 0, fontSize: 14, color: UI.primary, lineHeight: 1.75 }}>
+                      <strong>{s.stepLabel}</strong>
+                      {it.step}
+                    </p>
+                  </RailItem>
+                ))}
+              </div>
             )}
 
             {resultType === "resume" && resultData && (
               <>
-                <Panel style={{ marginBottom: 20, [isRtl ? "borderRight" : "borderLeft"]: `3px solid ${COLORS.pine}` }}>
-                  <p style={{ margin: 0, fontSize: 16, lineHeight: 1.9, fontStyle: "italic", color: COLORS.ink }}>{resultData.bio}</p>
-                </Panel>
-                <Panel>
-                  <Label>{s.resumeTipsLabel}</Label>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {resultData.tips.map((t, i) => (
-                      <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                        <div style={{ width: 20, height: 20, borderRadius: "50%", background: COLORS.pine, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
-                          <Check size={12} color="#fff" strokeWidth={3} />
-                        </div>
-                        <p style={{ margin: 0, fontSize: 15, lineHeight: 1.7 }}>{t}</p>
-                      </div>
-                    ))}
-                  </div>
-                </Panel>
+                <div
+                  style={{
+                    marginBottom: 24,
+                    padding: "16px 18px",
+                    background: UI.surface,
+                    border: `1px solid ${UI.border}`,
+                    borderInlineStart: `3px solid ${UI.primary}`,
+                    borderRadius: 12,
+                  }}
+                >
+                  <p style={{ margin: 0, fontSize: 16, lineHeight: 1.9, fontStyle: "italic", color: UI.text }}>{resultData.bio}</p>
+                </div>
+                <SectionTitle>{s.resumeTipsLabel}</SectionTitle>
+                <CheckList items={resultData.tips} />
               </>
             )}
 
             {resultType === "plan" && resultData && (
               <>
-                <Panel style={{ marginBottom: 20 }}>
-                  <Label>{s.strengthsLabel}</Label>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {resultData.strengths.map((st, i) => (
-                      <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                        <div style={{ width: 20, height: 20, borderRadius: "50%", background: COLORS.pine, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
-                          <Check size={12} color="#fff" strokeWidth={3} />
-                        </div>
-                        <p style={{ margin: 0, fontSize: 15, lineHeight: 1.7 }}>{st}</p>
-                      </div>
-                    ))}
-                  </div>
-                </Panel>
+                <SectionTitle>{s.strengthsLabel}</SectionTitle>
+                <CheckList items={resultData.strengths} />
 
-                <Panel style={{ marginBottom: 20 }}>
-                  <Label>{s.gapsLabel}</Label>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                    {resultData.gaps.map((g, i) => (
-                      <div key={i}>
-                        <p style={{ margin: "0 0 3px 0", fontSize: 15, fontWeight: 700 }}>{g.skill}</p>
-                        <p style={{ margin: 0, fontSize: 14, color: COLORS.inkSoft, lineHeight: 1.7 }}>{g.why}</p>
-                      </div>
-                    ))}
-                  </div>
-                </Panel>
-
-                <Panel>
-                  <Label>{s.actionPlanLabel}</Label>
-                  <div style={{ position: "relative", [isRtl ? "paddingRight" : "paddingLeft"]: 4 }}>
-                    <div style={{ position: "absolute", [START]: 13, top: 8, bottom: 8, width: 2, background: COLORS.border }} />
-                    {resultData.gaps.map((g, i) => (
-                      <div key={i} style={{ position: "relative", display: "flex", gap: 14, marginBottom: i === resultData.gaps.length - 1 ? 0 : 16 }}>
-                        <div
-                          style={{
-                            width: 28,
-                            height: 28,
-                            borderRadius: "50%",
-                            background: COLORS.panel,
-                            border: `2px solid ${COLORS.amber}`,
-                            color: COLORS.amber,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: 13,
-                            fontWeight: 700,
-                            flexShrink: 0,
-                            zIndex: 1,
-                          }}
-                        >
-                          {i + 1}
-                        </div>
-                        <p style={{ margin: "3px 0 0 0", fontSize: 15, lineHeight: 1.7 }}>{g.step}</p>
-                      </div>
-                    ))}
-                  </div>
-                </Panel>
-
-                <div style={{ marginTop: 20 }}>
-                  <PrimaryButton onClick={generateWeeklyPlan} disabled={planBusy} loading={planBusy}>
-                    {planBusy ? s.generatingPlan : s.generatePlan}
-                  </PrimaryButton>
+                <SectionTitle style={{ marginTop: 28 }}>{s.gapsLabel}</SectionTitle>
+                {/* One rail per gap: number and colour here are the same ones its tasks carry in the
+                    weekly plan below, so a task can be traced back to its gap at a glance. Each gap's
+                    suggested step sits under its reason. */}
+                {/* No gaps means nothing for a plan to close — the plan endpoint rejects an empty list —
+                    so the button is replaced by saying so. */}
+                {resultData.gaps.length === 0 && (
+                  <p style={{ margin: 0, padding: "12px 14px", fontSize: 14, lineHeight: 1.75, color: UI.muted, background: UI.surface, border: `1px dashed ${UI.borderStrong}`, borderRadius: 12 }}>
+                    {s.noGaps}
+                  </p>
+                )}
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  {resultData.gaps.map((g, i) => {
+                    const c = gapColor(i);
+                    return (
+                      <RailItem key={i} last={i === resultData.gaps.length - 1} badge={<NumberBadge n={i + 1} color={c.fg} />}>
+                        <h3 style={{ margin: "4px 0 4px 0", fontSize: 16, fontWeight: 700, color: c.fg, lineHeight: 1.5 }}>{g.skill}</h3>
+                        <p style={{ margin: "0 0 6px 0", fontSize: 14, color: "#3D4540", lineHeight: 1.75 }}>{g.why}</p>
+                        <p style={{ margin: 0, fontSize: 13, color: UI.muted, lineHeight: 1.7 }}>
+                          <strong style={{ color: UI.text }}>{s.stepLabel}</strong>
+                          {g.step}
+                        </p>
+                      </RailItem>
+                    );
+                  })}
                 </div>
+
+                {resultData.gaps.length > 0 && (
+                  <div style={{ marginTop: 8, paddingTop: 20, borderTop: `1px solid ${UI.border}` }}>
+                    <PrimaryButton onClick={generateWeeklyPlan} disabled={planBusy} loading={planBusy}>
+                      {planBusy ? s.generatingPlan : s.generatePlan}
+                    </PrimaryButton>
+                  </div>
+                )}
 
                 {planError && (
                   <div style={{ marginTop: 14 }}>
-                    <p style={{ color: COLORS.danger, fontSize: 14, margin: "0 0 10px 0" }}>{planError}</p>
-                    <SecondaryButton onClick={generateWeeklyPlan} disabled={planBusy} loading={planBusy}>
-                      {s.retry}
-                    </SecondaryButton>
+                    <ErrorNote>{planError}</ErrorNote>
+                    <div style={{ marginTop: 10 }}>
+                      <SecondaryButton onClick={generateWeeklyPlan} disabled={planBusy} loading={planBusy}>
+                        {s.retry}
+                      </SecondaryButton>
+                    </div>
                   </div>
                 )}
 
                 {weeklyPlan && (
-                  <Panel style={{ marginTop: 20 }}>
-                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                      <Label>{s.weeklyPlanTitle}</Label>
-                      <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-                        <GhostButton
-                          onClick={handlePlanCopy}
-                          active={planCopied}
-                          icon={planCopied ? <CopyCheck size={14} /> : <Copy size={14} />}
-                        >
+                  <section style={{ marginTop: 28, paddingTop: 24, borderTop: `1px solid ${UI.border}` }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 18 }}>
+                      <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: UI.text }}>{s.weeklyPlanTitle}</h2>
+                      <div className="cm-plan-actions" style={{ display: "flex", gap: 8 }}>
+                        <SecondaryButton onClick={handlePlanCopy}>
+                          {planCopied ? <CopyCheck size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
                           {planCopied ? s.copied : s.copy}
-                        </GhostButton>
-                        <GhostButton onClick={handleSavePdf} icon={<FileDown size={14} />}>
+                        </SecondaryButton>
+                        <PrimaryButton onClick={handleSavePdf}>
+                          <FileDown size={16} aria-hidden="true" />
                           {s.savePdf}
-                        </GhostButton>
+                        </PrimaryButton>
                       </div>
                     </div>
                     {printBlocked && (
                       <p
                         role="status"
                         style={{
-                          margin: "0 0 14px 0",
-                          padding: "8px 12px",
+                          margin: "0 0 16px 0",
+                          padding: "10px 12px",
                           fontSize: 13,
-                          lineHeight: 1.6,
-                          color: COLORS.ink,
-                          background: "#FBF3E6",
-                          border: `1px solid ${COLORS.amber}`,
-                          borderRadius: 3,
+                          lineHeight: 1.7,
+                          color: UI.noticeFg,
+                          background: UI.noticeBg,
+                          borderRadius: 12,
                         }}
                       >
                         {s.printBlocked}
                       </p>
                     )}
-                    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                      {weeklyPlan.map((week) => (
-                        <div key={week.weekNumber} style={{ display: "flex", gap: 14 }}>
-                          <div
-                            style={{
-                              width: 28,
-                              height: 28,
-                              borderRadius: "50%",
-                              background: COLORS.panel,
-                              border: `2px solid ${COLORS.amber}`,
-                              color: COLORS.amber,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              fontSize: 13,
-                              fontWeight: 700,
-                              flexShrink: 0,
-                            }}
-                          >
-                            {week.weekNumber}
-                          </div>
-                          <div style={{ flex: 1 }}>
-                            <p style={{ margin: "4px 0 8px 0", fontSize: 13, color: COLORS.inkSoft }}>
-                              {s.weekLabel} {week.weekNumber}
-                            </p>
-                            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                              {week.tasks.map((task, i) => (
-                                <div key={i}>
-                                  <p style={{ margin: "0 0 4px 0", fontSize: 15, lineHeight: 1.7 }}>{task.title}</p>
-                                  {/* inline-block, not inline: a wrapped inline span paints each line as
-                                      its own fragment, so long skill names came out ragged and looked
-                                      clipped on phones. As a block it wraps inside one rounded box that
-                                      never grows past its column. */}
-                                  <span
-                                    style={{
-                                      display: "inline-block",
-                                      maxWidth: "100%",
-                                      boxSizing: "border-box",
-                                      overflowWrap: "anywhere",
-                                      verticalAlign: "top",
-                                      fontSize: 12,
-                                      lineHeight: 1.55,
-                                      padding: "4px 10px",
-                                      borderRadius: 12,
-                                      background: "#EEF0E5",
-                                      color: COLORS.pineDark,
-                                      border: `1px solid ${COLORS.border}`,
-                                    }}
-                                  >
-                                    {task.relatedSkill}
-                                  </span>
+                    {weeklyPlan.map((week, wi) => (
+                      <section key={week.weekNumber} className="cm-week">
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }} aria-hidden="true">
+                          <span className="cm-week-badge">{week.weekNumber}</span>
+                          {wi < weeklyPlan.length - 1 && (
+                            <span style={{ flex: 1, width: 2, margin: "6px 0", background: "#B9C8BD", borderRadius: 1 }} />
+                          )}
+                        </div>
+                        <div style={{ minWidth: 0, paddingBottom: wi < weeklyPlan.length - 1 ? 24 : 0 }}>
+                          <h3 className="cm-week-title" style={{ margin: "4px 0 12px 0", fontWeight: 800, color: UI.text, lineHeight: 1.5 }}>
+                            {s.weekLabel} {week.weekNumber}
+                          </h3>
+                          <div className="cm-task-grid">
+                            {week.tasks.map((task, i) => {
+                              const gi = resultData.gaps.findIndex((g) => g.skill === task.relatedSkill);
+                              return (
+                                <div
+                                  key={i}
+                                  style={{
+                                    background: UI.surface,
+                                    border: `1px solid ${UI.border}`,
+                                    borderRadius: 12,
+                                    padding: "12px 14px",
+                                    minWidth: 0,
+                                  }}
+                                >
+                                  <p style={{ margin: "0 0 10px 0", fontSize: 15, fontWeight: 600, lineHeight: 1.65, color: UI.text }}>{task.title}</p>
+                                  <GapChip index={gi} name={task.relatedSkill} />
                                 </div>
-                              ))}
-                            </div>
+                              );
+                            })}
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  </Panel>
+                      </section>
+                    ))}
+                  </section>
                 )}
               </>
             )}
             </ResultBoundary>
             </JourneyStep>
-            </JourneyFrame>
+            </div>
+            </div>
+
+            <aside className="cm-doc-aside">
+              <SaveNotice>{s.privacyNote}</SaveNotice>
+              <SourceCard label={s.sourceLabel} name={sourceName} isFile={inputMode === "file"} size={inputMode === "file" ? fileSize : 0} />
+            </aside>
           </div>
         )}
       </div>
