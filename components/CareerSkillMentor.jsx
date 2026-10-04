@@ -25,6 +25,7 @@ import {
   CalendarDays,
   CloudUpload,
   CircleCheck,
+  CircleAlert,
   FileUp,
   ExternalLink,
 } from "lucide-react";
@@ -41,14 +42,37 @@ const COLORS = {
   danger: "#A6432F",
 };
 
+// The redesign's palette (from the design handoff's tokens). The journey rail keeps COLORS.pine:
+// its values follow the live site, not the handoff. The handoff's
+// error colours are oklch(); these are their sRGB equivalents, for browsers without oklch().
+const UI = {
+  page: "#F5F0E6",
+  surface: "#FFFDF8",
+  dropzone: "#F8F5EE",
+  border: "#E4DDCF",
+  borderSoft: "#EDE6D8",
+  borderStrong: "#CFC6B4",
+  text: "#1C2420",
+  muted: "#5B655F",
+  primary: "#1F4D3A",
+  primaryTint: "#E3EBE4",
+  primarySoft: "#9DB1A3",
+  selected: "#F4F7F2",
+  noticeBg: "#F1EADB",
+  noticeFg: "#5B4E36",
+  error: "#A03F3C",
+  errorStrong: "#822B2A",
+  errorBg: "#FFECE9",
+  shadowDoc: "0 18px 40px -28px rgba(31,77,58,.35)",
+};
+
 // ---------- i18n ----------
 const STRINGS = {
   ar: {
     dir: "rtl",
     appTitle: "مرشدك المهني",
+    brandLetter: "م",
     startOver: "ابدأ من جديد",
-    heroFrom: "سيرتك الذاتية",
-    heroTo: "خطتك المهنية",
     inputHeading: "من سيرتك الذاتية إلى خطوتك المهنية الجاية",
     inputSub: "ارفع سيرتك أو اكتب عن نفسك، ونحلّل مهاراتك ونقترح لك طريقاً واضحاً.",
     journeyUpload: "ارفع سيرتك الذاتية",
@@ -56,6 +80,7 @@ const STRINGS = {
     journeyAnalyzeNote: "كلماتك المفتاحية ومجالك الحالي",
     journeyChoose: "تختار خطوتك الجاية",
     newBadge: "جديد",
+    previewTitle: "خياراتك بعد التحليل",
     previewOptions: [
       { title: "مجالات جديدة تناسبك", desc: "بناءً على مهاراتك" },
       { title: "تعمّق في مجالك", desc: "مهارات وشهادات متقدمة" },
@@ -65,7 +90,7 @@ const STRINGS = {
     ],
     dropTitle: "اسحب سيرتك هنا أو اختر ملفاً",
     dropTitleTouch: "اختر ملف سيرتك الذاتية",
-    uploadLabel: "PDF أو صورة أو ملف Word (docx) — حتى 3 ميجابايت",
+    uploadLabel: "PDF أو صورة أو ملف Word (docx) — حتى 3\u00A0ميجابايت",
     chooseFile: "اختر ملف",
     changeFile: "اختر ملفاً آخر",
     altWritePrompt: "ما عندك ملف؟",
@@ -134,9 +159,8 @@ const STRINGS = {
   en: {
     dir: "ltr",
     appTitle: "Career Mentor",
+    brandLetter: "C",
     startOver: "Start Over",
-    heroFrom: "Your resume",
-    heroTo: "your career plan",
     inputHeading: "From your resume to your next career move",
     inputSub: "Upload your resume or describe yourself, and we'll analyze your skills and suggest a clear path.",
     journeyUpload: "Upload your resume",
@@ -144,6 +168,7 @@ const STRINGS = {
     journeyAnalyzeNote: "Your keywords and current field",
     journeyChoose: "Pick your next step",
     newBadge: "New",
+    previewTitle: "Your options after the analysis",
     previewOptions: [
       { title: "Fields that fit you", desc: "Based on your skills" },
       { title: "Go deeper in your field", desc: "Advanced skills and certificates" },
@@ -153,7 +178,7 @@ const STRINGS = {
     ],
     dropTitle: "Drop your resume here or choose a file",
     dropTitleTouch: "Choose your resume file",
-    uploadLabel: "PDF, image, or Word file (docx) — up to 3 MB",
+    uploadLabel: "PDF, image, or Word file (docx) — up to 3\u00A0MB",
     chooseFile: "Choose file",
     changeFile: "Choose another file",
     altWritePrompt: "No file?",
@@ -443,12 +468,13 @@ function PrimaryButton({ children, onClick, disabled, loading }) {
       style={{
         fontFamily: "var(--font-cairo), sans-serif",
         fontSize: 15,
-        fontWeight: 600,
-        padding: "11px 22px",
-        background: disabled ? COLORS.inkSoft : COLORS.pine,
+        fontWeight: 700,
+        minHeight: 46,
+        padding: "0 22px",
+        background: disabled ? UI.primarySoft : UI.primary,
         color: "#fff",
         border: "none",
-        borderRadius: 3,
+        borderRadius: 12,
         cursor: disabled ? "default" : "pointer",
         display: "inline-flex",
         alignItems: "center",
@@ -473,12 +499,13 @@ function SecondaryButton({ children, onClick, disabled, loading }) {
       style={{
         fontFamily: "var(--font-cairo), sans-serif",
         fontSize: 15,
-        fontWeight: 600,
-        padding: "11px 22px",
+        fontWeight: 700,
+        minHeight: 46,
+        padding: "0 22px",
         background: "transparent",
-        color: disabled ? COLORS.inkSoft : COLORS.pineDark,
-        border: `1px solid ${disabled ? COLORS.border : COLORS.pine}`,
-        borderRadius: 3,
+        color: disabled ? UI.muted : UI.primary,
+        border: `1px solid ${disabled ? UI.border : UI.primary}`,
+        borderRadius: 12,
         cursor: disabled ? "default" : "pointer",
         display: "inline-flex",
         alignItems: "center",
@@ -612,60 +639,129 @@ const PREVIEW_CARDS = [
 ];
 
 // Deliberately not a button — no arrow, no hover lift — so it doesn't read as something to pick
-// before a CV has been analyzed.
-function PreviewCard({ Icon, bg, fg, featured, title, desc, badge }) {
+// before a CV has been analyzed. The badge sits inline at the row's end, so it needs no physical
+// left/right positioning to land on the correct side in either direction.
+function PreviewRow({ Icon, bg, fg, featured, title, desc, badge }) {
   return (
     <div
       role="listitem"
-      className={featured ? "cm-preview-featured" : undefined}
       style={{
-        position: "relative",
-        background: featured ? "#F1F7F4" : COLORS.panel,
-        border: featured ? `1.5px solid ${COLORS.pine}` : `1px solid ${COLORS.border}`,
-        borderRadius: 4,
-        padding: "16px 8px 12px",
-        textAlign: "center",
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        padding: featured ? "12px" : "12px 2px",
+        // Plain rows set no border inline, so .cm-preview-list can draw the dividers between them.
+        ...(featured && {
+          background: UI.selected,
+          border: `1.5px solid ${COLORS.pine}`,
+          borderRadius: 12,
+          marginTop: 6,
+        }),
       }}
     >
+      <div
+        aria-hidden="true"
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 9,
+          background: bg,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}
+      >
+        <Icon size={18} color={fg} strokeWidth={1.9} />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ margin: 0, fontSize: 14, fontWeight: 700, lineHeight: 1.5, color: featured ? UI.primary : UI.text }}>{title}</p>
+        <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.5, color: UI.muted }}>{desc}</p>
+      </div>
       {featured && (
         <span
           style={{
-            position: "absolute",
-            top: -10,
-            left: "50%",
-            transform: "translateX(-50%)",
+            flexShrink: 0,
             background: COLORS.amber,
             color: "#fff",
             fontSize: 11,
             fontWeight: 700,
-            lineHeight: 1.6,
+            lineHeight: 1.7,
             padding: "0 10px",
-            borderRadius: 20,
+            borderRadius: 999,
             whiteSpace: "nowrap",
           }}
         >
           {badge}
         </span>
       )}
-      <div
+    </div>
+  );
+}
+
+// The privacy line, set as a notice rather than small print: it says what happens to the CV.
+function SaveNotice({ children }) {
+  return (
+    <p
+      role="note"
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        gap: 10,
+        margin: 0,
+        padding: "10px 12px",
+        background: UI.noticeBg,
+        color: UI.noticeFg,
+        fontSize: 13,
+        lineHeight: 1.7,
+        borderRadius: 12,
+      }}
+    >
+      <span
+        aria-hidden="true"
         style={{
-          width: 38,
-          height: 38,
-          borderRadius: 10,
-          background: bg,
+          width: 18,
+          height: 18,
+          marginTop: 2,
+          flexShrink: 0,
+          borderRadius: "50%",
+          border: "1.5px solid currentColor",
+          boxSizing: "border-box",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          margin: "0 auto 8px",
+          fontSize: 11,
+          fontWeight: 800,
+          lineHeight: 1,
         }}
       >
-        <Icon size={19} color={fg} strokeWidth={1.9} />
-      </div>
-      <p style={{ margin: "0 0 2px 0", fontSize: 13, fontWeight: 700, lineHeight: 1.45, color: featured ? COLORS.pineDark : COLORS.ink }}>
-        {title}
-      </p>
-      <p style={{ margin: 0, fontSize: 11.5, lineHeight: 1.45, color: COLORS.inkSoft }}>{desc}</p>
-    </div>
+        !
+      </span>
+      {children}
+    </p>
+  );
+}
+
+function ErrorNote({ children }) {
+  return (
+    <p
+      role="alert"
+      style={{
+        display: "flex",
+        alignItems: "flex-start",
+        gap: 8,
+        margin: 0,
+        padding: "10px 12px",
+        background: UI.errorBg,
+        color: UI.errorStrong,
+        fontSize: 14,
+        lineHeight: 1.8,
+        borderRadius: 12,
+      }}
+    >
+      <CircleAlert size={18} color={UI.error} aria-hidden="true" style={{ flexShrink: 0, marginTop: 3 }} />
+      {children}
+    </p>
   );
 }
 
@@ -682,10 +778,10 @@ function AltInputLink({ prompt, label, onClick, Icon }) {
         flexWrap: "wrap",
         gap: 6,
         fontSize: 13.5,
-        color: COLORS.inkSoft,
+        color: UI.muted,
       }}
     >
-      <Icon size={14} color={COLORS.pine} aria-hidden="true" />
+      <Icon size={14} color={UI.primary} aria-hidden="true" />
       {prompt}
       <button
         type="button"
@@ -694,7 +790,7 @@ function AltInputLink({ prompt, label, onClick, Icon }) {
           background: "none",
           border: "none",
           padding: "6px 2px",
-          color: COLORS.pine,
+          color: UI.primary,
           fontSize: 13.5,
           fontWeight: 700,
           textDecoration: "underline",
@@ -779,8 +875,8 @@ function LanguageToggle({ lang, setLang }) {
         display: "flex",
         alignItems: "center",
         gap: 2,
-        border: `1px solid ${COLORS.border}`,
-        borderRadius: 20,
+        border: `1px solid ${UI.borderStrong}`,
+        borderRadius: 999,
         padding: 2,
         flexShrink: 0,
       }}
@@ -791,13 +887,14 @@ function LanguageToggle({ lang, setLang }) {
           onClick={() => setLang(l)}
           style={{
             fontFamily: "var(--font-cairo), sans-serif",
-            fontSize: 12,
+            fontSize: 13,
             fontWeight: 600,
-            padding: "5px 12px",
-            borderRadius: 16,
+            minHeight: 28,
+            padding: "0 12px",
+            borderRadius: 999,
             border: "none",
-            background: lang === l ? COLORS.pine : "transparent",
-            color: lang === l ? "#fff" : COLORS.inkSoft,
+            background: lang === l ? UI.primary : "transparent",
+            color: lang === l ? "#fff" : UI.muted,
             cursor: "pointer",
           }}
         >
@@ -1270,10 +1367,9 @@ export default function CareerSkillMentor() {
       dir={s.dir}
       style={{
         fontFamily: "var(--font-cairo), sans-serif",
-        background: `radial-gradient(rgba(47,107,87,0.09) 1px, transparent 1.4px) 0 0/20px 20px, ${COLORS.bg}`,
-        minHeight: "100%",
-        padding: "40px 20px",
-        color: COLORS.ink,
+        background: UI.page,
+        minHeight: "100vh",
+        color: UI.text,
       }}
     >
       <style>{`
@@ -1292,12 +1388,12 @@ export default function CareerSkillMentor() {
         .cm-card:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(30,42,47,0.08); border-color: ${COLORS.amber} !important; }
 
 
-        .cm-input:focus { outline: none; border-color: ${COLORS.pine} !important; box-shadow: 0 0 0 3px rgba(47,107,87,0.12); }
+        .cm-input:focus { outline: none; border-color: ${UI.primary} !important; box-shadow: 0 0 0 3px rgba(31,77,58,0.12); }
 
         .cm-suggestion:hover:not(:disabled) { background: #F1EDE0 !important; border-color: ${COLORS.pine} !important; }
 
-        .cm-drop:hover { border-color: ${COLORS.pine} !important; background: #EFF5F1 !important; }
-        .cm-drop:focus-within { outline: 2px solid ${COLORS.pine}; outline-offset: 2px; }
+        .cm-drop:hover { border-color: ${UI.primary} !important; background: ${UI.selected} !important; }
+        .cm-drop:focus-within { outline: 2px solid ${UI.primary}; outline-offset: 2px; }
         /* "Drop your resume here" only makes sense with a mouse; touch screens get "Choose your resume file". */
         .cm-drop-touch { display: none; }
         @media (hover: none) and (pointer: coarse) { .cm-drop-pointer { display: none; } .cm-drop-touch { display: inline; } }
@@ -1310,18 +1406,33 @@ export default function CareerSkillMentor() {
         /* The back tab is drawn 34px tall; this invisible strip above it makes the tap target 44px. */
         .cm-back::before { content: ""; position: absolute; inset: -10px 0 0 0; }
 
-        .cm-preview-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+        .cm-shell { max-width: 1040px; margin: 0 auto; padding-inline: 32px; box-sizing: border-box; }
+        .cm-main { padding-block: 40px 56px; }
+        .cm-main-narrow { max-width: 640px; }
+        .cm-upload-grid { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 40px; align-items: start; }
+        .cm-hero-title { font-size: 40px; }
+        .cm-input-card { padding: 24px; }
+        .cm-drop { padding: 36px 24px; }
+        .cm-preview-list > [role="listitem"]:not(:last-child):not(:nth-last-child(2)) { border-bottom: 1px solid ${UI.borderSoft}; }
+        @media (max-width: 899px) {
+          .cm-shell { padding-inline: 20px; }
+          .cm-main { padding-block: 24px 40px; }
+          .cm-upload-grid { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+          .cm-hero-title { font-size: 28px; }
+        }
         @media (max-width: 600px) {
           .cm-journey { padding: 16px 14px 18px !important; }
           .cm-journey .cm-panel { padding: 16px !important; }
+          .cm-input-card { padding: 16px; }
+
+          .cm-drop { padding: 28px 16px; }
+          .cm-brand-name { font-size: 15px !important; }
           /* P1: on phones the five options become compact rows — icon and title; the description,
              which wrapped each card to 90px+, shows only on wider screens. */
           .cm-opt-list { gap: 8px !important; }
           .cm-opt { padding: 10px 12px !important; gap: 10px !important; min-height: 52px; }
           .cm-opt-desc { display: none; }
           .cm-opt-icon { width: 30px !important; height: 30px !important; border-radius: 8px !important; }
-          .cm-preview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 8px; }
-          .cm-preview-grid > .cm-preview-featured { grid-column: 1 / -1; }
         }
 
         .cm-print-root { display: none; }
@@ -1370,11 +1481,28 @@ export default function CareerSkillMentor() {
           .cm-print-skill { font-size: 9.5pt; color: ${COLORS.inkSoft}; }
         }
       `}</style>
-      <div style={{ maxWidth: 640, margin: "0 auto" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, gap: 10, flexWrap: "wrap" }}>
+      <header style={{ borderBottom: `1px solid ${UI.border}` }}>
+        <div className="cm-shell" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", paddingBlock: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <Compass size={22} color={COLORS.pine} strokeWidth={2} />
-            <span style={{ fontSize: 14, color: COLORS.pine, fontWeight: 600 }}>{s.appTitle}</span>
+            <span
+              aria-hidden="true"
+              style={{
+                width: 30,
+                height: 30,
+                borderRadius: "50%",
+                background: UI.primary,
+                color: "#fff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 15,
+                fontWeight: 800,
+                lineHeight: 1,
+              }}
+            >
+              {s.brandLetter}
+            </span>
+            <span className="cm-brand-name" style={{ fontSize: 17, fontWeight: 800, color: UI.text }}>{s.appTitle}</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <LanguageToggle lang={lang} setLang={setLang} />
@@ -1387,50 +1515,47 @@ export default function CareerSkillMentor() {
                   alignItems: "center",
                   gap: 6,
                   background: "none",
-                  border: `1px solid ${COLORS.border}`,
-                  borderRadius: 3,
-                  padding: "6px 12px",
+                  border: `1px solid ${UI.borderStrong}`,
+                  borderRadius: 999,
+                  minHeight: 32,
+                  padding: "0 12px",
                   fontSize: 13,
-                  color: COLORS.inkSoft,
+                  fontWeight: 600,
+                  color: UI.muted,
                   cursor: "pointer",
                   fontFamily: "var(--font-cairo), sans-serif",
                 }}
               >
-                <RotateCcw size={14} /> {s.startOver}
+                <RotateCcw size={14} aria-hidden="true" /> {s.startOver}
               </button>
             )}
           </div>
         </div>
+      </header>
 
-
+      {/* Screens 2 and 3 keep the narrow single column until their own redesign. */}
+      <main className="cm-shell cm-main">
+      <div className={step === "input" ? undefined : "cm-main-narrow"} style={step === "input" ? undefined : { margin: "0 auto" }}>
         {step === "input" && (
-          <div className="cm-step-enter">
-            <span
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                fontSize: 12,
-                fontWeight: 600,
-                color: COLORS.pineDark,
-                background: "#E1F0EA",
-                borderRadius: 20,
-                padding: "4px 12px",
-              }}
-            >
-              {s.heroFrom}
-              <ArrowRightIcon size={14} aria-hidden="true" style={{ transform: isRtl ? "scaleX(-1)" : "none" }} />
-              {s.heroTo}
-            </span>
-            <h1 style={{ fontFamily: "var(--font-amiri), serif", fontSize: 32, fontWeight: 700, margin: "10px 0 8px 0", lineHeight: 1.35, color: COLORS.pineDark }}>
+          <div className="cm-step-enter cm-upload-grid">
+            <div style={{ minWidth: 0 }}>
+            <h1 className="cm-hero-title" style={{ fontWeight: 800, margin: "0 0 10px 0", lineHeight: 1.4, color: UI.text }}>
               {s.inputHeading}
             </h1>
-            <p style={{ color: COLORS.inkSoft, fontSize: 16, lineHeight: 1.8, margin: "0 0 22px 0", maxWidth: 500 }}>
+            <p style={{ color: UI.muted, fontSize: 17, lineHeight: 1.85, margin: "0 0 28px 0", maxWidth: 560 }}>
               {s.inputSub}
             </p>
 
-            <JourneyFrame>
             <JourneyStep number={1} state="current" title={s.journeyUpload}>
+            <div
+              className="cm-input-card"
+              style={{
+                background: UI.surface,
+                border: `1px solid ${UI.border}`,
+                borderRadius: 18,
+                boxShadow: UI.shadowDoc,
+              }}
+            >
             {/* Upload is the primary path, so it gets the large drop zone and the green button;
                 writing it yourself is the alternative, offered as a lighter link underneath. The
                 whole zone is the file input's <label>, so a tap or click anywhere opens the picker,
@@ -1448,11 +1573,10 @@ export default function CareerSkillMentor() {
                     flexDirection: "column",
                     alignItems: "center",
                     textAlign: "center",
-                    gap: 6,
-                    padding: "22px 16px",
-                    border: `1.5px dashed ${dragActive ? COLORS.pine : "#BFD3C8"}`,
-                    borderRadius: 10,
-                    background: dragActive ? "#EAF1EE" : "#F7FAF8",
+                    gap: 8,
+                    border: `1.5px dashed ${dragActive ? UI.primary : UI.primarySoft}`,
+                    borderRadius: 14,
+                    background: dragActive ? UI.selected : UI.dropzone,
                     cursor: "pointer",
                     transition: "border-color 0.15s ease, background 0.15s ease",
                   }}
@@ -1460,18 +1584,21 @@ export default function CareerSkillMentor() {
                   <span
                     aria-hidden="true"
                     style={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: "50%",
-                      background: "#E1F0EA",
+                      width: 52,
+                      height: 52,
+                      borderRadius: 12,
+                      background: UI.primaryTint,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
+                      marginBottom: 4,
                     }}
                   >
-                    {fileName ? <CircleCheck size={22} color={COLORS.pine} /> : <CloudUpload size={22} color={COLORS.pine} />}
+                    {fileName ? <CircleCheck size={24} color={UI.primary} /> : <CloudUpload size={24} color={UI.primary} />}
                   </span>
-                  <span style={{ fontSize: 15, fontWeight: 700, color: COLORS.ink, overflowWrap: "anywhere" }}>
+                  {/* plaintext: a file name keeps its own direction, so "السيرة.pdf" doesn't show its
+                      extension on the wrong side in the English interface (or vice versa). */}
+                  <span style={{ fontSize: 16, fontWeight: 700, color: UI.text, overflowWrap: "anywhere", unicodeBidi: fileName ? "plaintext" : undefined }}>
                     {fileName || (
                       <>
                         <span className="cm-drop-pointer">{s.dropTitle}</span>
@@ -1479,24 +1606,24 @@ export default function CareerSkillMentor() {
                       </>
                     )}
                   </span>
-                  <span style={{ fontSize: 12.5, color: COLORS.inkSoft }}>{s.uploadLabel}</span>
+                  <span style={{ fontSize: 13, color: UI.muted }}>{s.uploadLabel}</span>
                   <span
                     className="cm-btn"
                     style={{
                       display: "inline-flex",
                       alignItems: "center",
-                      gap: 6,
-                      marginTop: 6,
-                      padding: "9px 18px",
-                      borderRadius: 8,
-                      background: COLORS.pine,
+                      gap: 8,
+                      marginTop: 8,
+                      minHeight: 46,
+                      padding: "0 22px",
+                      borderRadius: 12,
+                      background: UI.primary,
                       color: "#fff",
-                      fontSize: 14,
+                      fontSize: 15,
                       fontWeight: 700,
-                      boxShadow: "0 2px 8px rgba(47,107,87,0.28)",
                     }}
                   >
-                    <FileUp size={16} aria-hidden="true" />
+                    <FileUp size={17} aria-hidden="true" />
                     {fileName ? s.changeFile : s.chooseFile}
                   </span>
                   {/* Visually hidden rather than display:none, so keyboard users can Tab to it; the zone's
@@ -1512,34 +1639,77 @@ export default function CareerSkillMentor() {
               </div>
             ) : (
               <div>
-                <Label>{s.writeLabel}</Label>
+                <label htmlFor="cm-manual" style={{ display: "block", fontSize: 14, fontWeight: 700, color: UI.text, margin: "0 0 10px 0" }}>
+                  {s.writeLabel}
+                </label>
                 <textarea
+                  id="cm-manual"
                   value={manualText}
                   onChange={(e) => setManualText(e.target.value)}
-                  rows={5}
+                  rows={6}
                   placeholder={s.writePlaceholder}
-                  style={{ ...INPUT_STYLE, resize: "vertical" }}
+                  className="cm-input"
+                  style={{
+                    width: "100%",
+                    minHeight: 168,
+                    boxSizing: "border-box",
+                    resize: "vertical",
+                    fontFamily: "var(--font-cairo), sans-serif",
+                    fontSize: 15,
+                    lineHeight: 1.8,
+                    padding: "12px 14px",
+                    border: `1px solid ${UI.borderStrong}`,
+                    borderRadius: 12,
+                    background: "#fff",
+                    color: UI.text,
+                  }}
                 />
                 <AltInputLink Icon={FileUp} prompt={s.altUploadPrompt} label={s.altUploadLink} onClick={() => setInputMode("file")} />
               </div>
             )}
-            {error && <p style={{ color: COLORS.danger, fontSize: 14, marginTop: 12 }}>{error}</p>}
+            {error && (
+              <div style={{ marginTop: 14 }}>
+                <ErrorNote>{error}</ErrorNote>
+              </div>
+            )}
 
-            <p style={{ fontSize: 12, color: COLORS.inkSoft, opacity: 0.7, lineHeight: 1.7, margin: "10px 0 16px 0" }}>
-              {s.privacyNote}
-            </p>
-
-            <PrimaryButton onClick={extractProfile} disabled={busy} loading={busy}>
-              {busy ? s.analyzing : s.next}
-            </PrimaryButton>
+            <div style={{ marginTop: 18 }}>
+              <PrimaryButton onClick={extractProfile} disabled={busy} loading={busy}>
+                {busy ? s.analyzing : s.next}
+              </PrimaryButton>
+            </div>
+            </div>
             </JourneyStep>
 
             <JourneyStep number={2} state="upcoming" title={s.journeyAnalyze} note={s.journeyAnalyzeNote} />
+            <JourneyStep number={3} state="upcoming" last title={s.journeyChoose} />
 
-            <JourneyStep number={3} state="upcoming" last title={s.journeyChoose}>
-              <div className="cm-preview-grid" role="list">
+            <div style={{ marginTop: 24 }}>
+              <SaveNotice>{s.privacyNote}</SaveNotice>
+            </div>
+            </div>
+
+            {/* What the five options look like before anything is uploaded: beside the form on wide
+                screens, after it on phones. */}
+            <aside
+              aria-labelledby="cm-preview-title"
+              style={{
+                background: UI.surface,
+                border: `1px solid ${UI.border}`,
+                borderRadius: 18,
+                padding: 24,
+                boxShadow: UI.shadowDoc,
+              }}
+            >
+              <h2
+                id="cm-preview-title"
+                style={{ margin: 0, paddingBottom: 14, borderBottom: `1px solid ${UI.border}`, fontSize: 17, fontWeight: 800, color: UI.text }}
+              >
+                {s.previewTitle}
+              </h2>
+              <div className="cm-preview-list" role="list" style={{ paddingTop: 6 }}>
                 {PREVIEW_CARDS.map((card, i) => (
-                  <PreviewCard
+                  <PreviewRow
                     key={i}
                     {...card}
                     title={s.previewOptions[i].title}
@@ -1548,8 +1718,7 @@ export default function CareerSkillMentor() {
                   />
                 ))}
               </div>
-            </JourneyStep>
-            </JourneyFrame>
+            </aside>
           </div>
         )}
 
@@ -2077,6 +2246,7 @@ export default function CareerSkillMentor() {
           </div>
         )}
       </div>
+      </main>
 
       {showPrintout &&
         createPortal(

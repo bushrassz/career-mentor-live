@@ -4,7 +4,7 @@ import { Cairo, Amiri } from "next/font/google";
 // never contacts fonts.googleapis.com / fonts.gstatic.com (which would expose visitor IPs).
 const cairo = Cairo({
   subsets: ["arabic", "latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["400", "500", "600", "700", "800"],
   display: "swap",
   variable: "--font-cairo",
 });
